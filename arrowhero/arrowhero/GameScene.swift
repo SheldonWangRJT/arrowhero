@@ -139,7 +139,9 @@ final class GameScene: SKScene {
         fireCooldown = 0
         enemyFireCooldowns.removeAll()
 
-        // Remove all nodes and actions
+        // Remove all nodes and actions — clear subtrees first so configureScene can re-add
+        player.removeAllChildren()
+        hudNode.removeAllChildren()
         removeAllActions()
         removeAllChildren()
 

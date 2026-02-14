@@ -89,11 +89,9 @@ struct ContentView: View {
                         Button("Restart") {
                             run.resetRun()
                             run.isPaused = false
-                            let newScene = GameScene(size: scene.size)
-                            newScene.scaleMode = .resizeFill
-                            newScene.runState = run
-                            newScene.isPaused = false
-                            scene = newScene
+                            scene.restart()
+                            scene.runState = run
+                            scene.isPaused = false
                         }
                         .buttonStyle(.borderedProminent)
 
