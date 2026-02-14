@@ -127,6 +127,21 @@ Last updated: 2026-02-13
 - [x] Pause/overlay
 - [ ] Basic VFX/SFX
 - [x] Auto-fire (stationary) toward nearest enemy
+- [ ] Wiring & Core Loop Polishing
+  - [x] Pass GameRunState into GameScene (scene reads player stats: moveSpeed, attackSpeed, projectileCount)
+  - [x] Pause sync: toggling pause in UI pauses/unpauses SpriteKit scene
+  - [x] Stabilize GameScene lifetime (persist instance in ContentView to avoid re-creation during upgrades/pause)
+  - [x] Upgrade overlay binding fix and unpause on dismiss (no freeze after choosing upgrade)
+  - [x] Grant XP on enemy kill (temp: +5 XP) to trigger level-up choices during play
+  - [x] Apply chosen upgrades at runtime
+    - [x] Attack speed (affects fire rate)
+    - [x] Projectile count
+    - [x] Pierce (projectiles pass through N enemies before despawning)
+    - [ ] Crit (pending)
+  - [x] Collision handling cleanup: de-duplicate projectile/enemy removals per frame
+  - [ ] Player damage on contact with enemies (with brief i-frames); end run at 0 HP
+  - [ ] Minimal HUD: HP bar, XP bar/progress, time survived
+  - [ ] Spawn scaling: gradually increase density/reduce interval over time (cap/mins)
 
 ### Milestone 2 (Week 5–6): Systems & Content
 - [ ] Expand upgrades to 18+ total
@@ -202,6 +217,8 @@ struct Economy { /* prices, rewards */ }
 // Game Flow
 final class RunState: ObservableObject { /* xp, level, choices, apply upgrade */ }
 final class Spawner { /* time-based spawn budget */ }
+
+
 
 
 

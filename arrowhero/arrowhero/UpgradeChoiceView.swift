@@ -5,7 +5,23 @@ struct UpgradeChoiceView: View {
 
     var body: some View {
         Color.clear
-            .fullScreenCover(isPresented: .constant(!run.levelSystem.pendingChoices.isEmpty), onDismiss: nil) {
+            .fullScreenCover(
+                isPresented: Binding(
+                    get: { !run.levelSystem.pendingChoices.isEmpty },
+                    set: { presented in
+                        if presented == false {
+                            // Ensure choices are cleared if dismissed programmatically
+                            run.levelSystem.pendingChoices = []
+                        }
+                    }
+                ),
+                onDismiss: {
+                    // Resume gameplay after upgrade selection/dismissal
+                    run.isPaused = false
+                }
+            ) {
+                EmptyView()
+                    .interactiveDismissDisabled(true)
                 VStack(spacing: 16) {
                     Text("Level \(run.levelSystem.level)!")
                         .font(.title)

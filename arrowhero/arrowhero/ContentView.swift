@@ -3,12 +3,7 @@ import SpriteKit
 
 struct ContentView: View {
     @EnvironmentObject var run: GameRunState
-
-    var scene: SKScene {
-        let scene = GameScene(size: CGSize(width: 750, height: 1334))
-        scene.scaleMode = .resizeFill
-        return scene
-    }
+    @State private var scene = GameScene(size: CGSize(width: 750, height: 1334))
 
     var body: some View {
         ZStack {
@@ -30,6 +25,14 @@ struct ContentView: View {
             }
 
             UpgradeChoiceView()
+        }
+        .onAppear {
+            scene.scaleMode = .resizeFill
+            scene.runState = run
+            scene.isPaused = run.isPaused
+        }
+        .onChange(of: run.isPaused) { newValue in
+            scene.isPaused = newValue
         }
     }
 }

@@ -2,12 +2,6 @@ import SpriteKit
 import SwiftUI
 import Combine
 
-// Singleton for run state (paused or running)
-final class RunState: ObservableObject {
-    static let shared = RunState()
-    @Published var isPaused: Bool = false
-}
-
 final class GameScene: SKScene {
     weak var runState: GameRunState?
 
@@ -90,7 +84,7 @@ final class GameScene: SKScene {
         moveEnemies(dt: dt)
 
         // Auto-fire
-        handleAutoFire(dt: dt)
+        handleAutoFire(dt)
 
         // Move projectiles and handle collisions
         moveProjectiles(dt: dt)
@@ -234,7 +228,7 @@ final class GameScene: SKScene {
         return nearest
     }
 
-    private func handleAutoFire(dt: TimeInterval) {
+    private func handleAutoFire(_ dt: TimeInterval) {
         fireCooldown -= dt
         let attackRate = runState?.player.attackSpeed ?? 1.0 // attacks per second
         let interval = max(0.05, 1.0 / attackRate)
@@ -265,7 +259,7 @@ final class GameScene: SKScene {
             node.fillColor = .cyan
             node.strokeColor = .clear
             node.zPosition = 6
-            node.userData = ["vx": dir.dx * projectileSpeed, "vy": dir.dy * projectileSpeed, "ttl": projectileLifetime]
+            node.userData = ["vx": dir.dx * projectileSpeed, "vy": dir.dy * projectileSpeed, "ttl": projectileLifetime, "pierce": runState?.player.pierce ?? 0]
             addChild(node)
         }
     }
@@ -287,20 +281,62 @@ final class GameScene: SKScene {
         }
     }
 
+    private func uniqueNodes(_ nodes: [SKNode]) -> [SKNode] {
+        var seen = Set<ObjectIdentifier>()
+        var result: [SKNode] = []
+        for node in nodes {
+            let id = ObjectIdentifier(node)
+            if !seen.contains(id) {
+                seen.insert(id)
+                result.append(node)
+            }
+        }
+        return result
+    }
+
     private func handleProjectileCollisions() {
-        var toRemove: [SKNode] = []
+        var enemiesToRemove: [SKNode] = []
+        var projectilesToRemove: [SKNode] = []
+
         enumerateChildNodes(withName: projectileCategoryName) { [unowned self] pNode, _ in
-            enumerateChildNodes(withName: self.enemyCategoryName) { eNode, _ in
+            guard let proj = pNode as? SKShapeNode, let data = proj.userData else { return }
+            var pierceRemaining = data["pierce"] as? Int ?? (self.runState?.player.pierce ?? 0)
+            var shouldRemoveProjectile = false
+
+            self.enumerateChildNodes(withName: self.enemyCategoryName) { eNode, stop in
                 let dx = pNode.position.x - eNode.position.x
                 let dy = pNode.position.y - eNode.position.y
                 let dist2 = dx*dx + dy*dy
                 if dist2 < 16*16 { // hit radius ~16
-                    toRemove.append(pNode)
-                    toRemove.append(eNode)
+                    enemiesToRemove.append(eNode)
+                    if pierceRemaining > 0 {
+                        pierceRemaining -= 1
+                        data["pierce"] = pierceRemaining
+                    } else {
+                        projectilesToRemove.append(pNode)
+                        shouldRemoveProjectile = true
+                        stop.pointee = true
+                    }
                 }
             }
+
+            if shouldRemoveProjectile {
+                // Projectile will be removed after we finish enumerating
+            }
         }
-        for node in toRemove { node.removeFromParent() }
+
+        let uniqueEnemies = uniqueNodes(enemiesToRemove)
+        let uniqueProjectiles = uniqueNodes(projectilesToRemove)
+
+        // Remove nodes
+        for node in uniqueProjectiles { node.removeFromParent() }
+        for node in uniqueEnemies { node.removeFromParent() }
+
+        // Grant XP for each enemy killed
+        if !uniqueEnemies.isEmpty {
+            let xpPerKill = 5
+            runState?.levelSystem.grantXP(xpPerKill * uniqueEnemies.count)
+        }
     }
 }
 
