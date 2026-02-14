@@ -75,6 +75,40 @@ struct ContentView: View {
             }
 
             UpgradeChoiceView()
+            
+            if run.isGameOver {
+                Color.black.opacity(0.6).ignoresSafeArea()
+                VStack(spacing: 16) {
+                    Text("Run Over")
+                        .font(.largeTitle)
+                        .bold()
+                    Text("Time: \(timeString(from: run.elapsedTime))")
+                        .font(.headline)
+                        .monospacedDigit()
+                    HStack(spacing: 12) {
+                        Button("Restart") {
+                            run.resetRun()
+                            run.isPaused = false
+                            let newScene = GameScene(size: scene.size)
+                            newScene.scaleMode = .resizeFill
+                            newScene.runState = run
+                            newScene.isPaused = false
+                            scene = newScene
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("Exit") {
+                            // For now, just reset and pause; could navigate to a menu later
+                            run.resetRun()
+                            scene.isPaused = true
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding()
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .frame(maxWidth: 400)
+            }
         }
         .onAppear {
             scene.scaleMode = .resizeFill

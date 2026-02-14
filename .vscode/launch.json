@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "arrowhero (iOS Simulator)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${env:HOME}/Library/Developer/Xcode/DerivedData/arrowhero-gqkvpedrmkmsqicgnwfeoqjbjgsi/Build/Products/Debug-iphonesimulator/arrowhero.app",
+      "iosBundleId": "sdw.arrowhero",
+      "iosTarget": "select",
+      "iosInstallApp": true,
+      "preLaunchTask": "Build arrowhero"
+    },
+    {
+      "name": "arrowhero (Attach)",
+      "type": "lldb",
+      "request": "attach",
+      "program": "${env:HOME}/Library/Developer/Xcode/DerivedData/arrowhero-gqkvpedrmkmsqicgnwfeoqjbjgsi/Build/Products/Debug-iphonesimulator/arrowhero.app",
+      "iosBundleId": "sdw.arrowhero",
+      "iosTarget": "last-selected",
+      "stopOnEntry": false
+    }
+  ]
+}

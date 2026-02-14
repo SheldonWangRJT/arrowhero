@@ -88,11 +88,20 @@ final class GameRunState: ObservableObject {
     @Published var player = PlayerStats()
     @Published var levelSystem = LevelingSystem()
     @Published var isPaused: Bool = false
+    @Published var isGameOver: Bool = false
     @Published var elapsedTime: TimeInterval = 0
 
     func chooseUpgrade(_ upgrade: Upgrade) {
         upgrade.apply(&player)
         levelSystem.pendingChoices = []
         levelSystem.presentNextIfNeeded()
+    }
+
+    func resetRun() {
+        player = PlayerStats()
+        levelSystem = LevelingSystem()
+        isPaused = false
+        elapsedTime = 0
+        isGameOver = false
     }
 }

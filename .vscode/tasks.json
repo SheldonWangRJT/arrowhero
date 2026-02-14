@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build arrowhero",
+      "type": "shell",
+      "command": "xcodebuild",
+      "args": [
+        "-scheme", "arrowhero",
+        "-sdk", "iphonesimulator",
+        "-arch", "arm64",
+        "-project", "${workspaceFolder}/arrowhero/arrowhero.xcodeproj",
+        "build"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/arrowhero",
+        "env": {}
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Run arrowhero in Simulator",
+      "type": "shell",
+      "command": "xcrun simctl launch booted sdw.arrowhero",
+      "dependsOn": "Build arrowhero",
+      "presentation": {
+        "reveal": "always"
+      }
+    }
+  ]
+}

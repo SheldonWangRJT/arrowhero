@@ -19,6 +19,11 @@ final class GameScene: SKScene {
     private var spawnInterval: TimeInterval = 2.0
     private let enemySpeed: CGFloat = 80
     private let enemyCategoryName = "enemy"
+    private let enemyTypeKey = "etype" // 0=slime(chaser), 1=cultist(ranged)
+    private let enemyHPKey = "ehp"
+    private let enemyRange: CGFloat = 220
+    private var enemyFireCooldowns: [SKNode: TimeInterval] = [:]
+    private let enemyBoltSpeed: CGFloat = 200
 
     // Projectile properties
     private var fireCooldown: TimeInterval = 0
@@ -42,7 +47,10 @@ final class GameScene: SKScene {
 
     override func didMove(to view: SKView) {
         backgroundColor = .black
+        configureScene()
+    }
 
+    private func configureScene() {
         player.position = CGPoint(x: size.width/2, y: size.height/2)
 
         // Background ground tiling
@@ -54,12 +62,12 @@ final class GameScene: SKScene {
         playerSprite.zPosition = 10
         player.addChild(playerSprite)
 
-        addChild(player)
+        if player.parent == nil { addChild(player) }
 
         // Setup HUD bars that follow the player
         hudNode.zPosition = 100
         hudNode.position = CGPoint(x: 0, y: 30)
-        player.addChild(hudNode)
+        if hudNode.parent == nil { player.addChild(hudNode) }
 
         // Configure anchors so scaling the fill adjusts width from left to right
         for node in [hpBg, hpFill, xpBg, xpFill] {
@@ -89,18 +97,19 @@ final class GameScene: SKScene {
         joystickBase.fillColor = .white.withAlphaComponent(0.12)
         joystickBase.alpha = 0
         joystickBase.zPosition = 50
-        addChild(joystickBase)
+        if joystickBase.parent == nil { addChild(joystickBase) }
 
         joystickThumb.strokeColor = .clear
         joystickThumb.fillColor = .white.withAlphaComponent(0.5)
         joystickThumb.alpha = 0
         joystickThumb.zPosition = 51
-        addChild(joystickThumb)
+        if joystickThumb.parent == nil { addChild(joystickThumb) }
 
         self.isPaused = runState?.isPaused ?? false
     }
 
     private func setupGround() {
+        if childNode(withName: "groundLayer") != nil { return }
         let tileTex = PixelAssets.groundTexture()
         let tileSize = CGSize(width: tileTex.size().width * 3.0, height: tileTex.size().height * 3.0)
         let cols = Int(ceil(size.width / tileSize.width)) + 2
@@ -108,6 +117,7 @@ final class GameScene: SKScene {
         let originX = -tileSize.width
         let originY = -tileSize.height
         let groundLayer = SKNode()
+        groundLayer.name = "groundLayer"
         groundLayer.zPosition = -10
         for r in 0..<rows {
             for c in 0..<cols {
@@ -119,6 +129,27 @@ final class GameScene: SKScene {
             }
         }
         addChild(groundLayer)
+    }
+
+    public func restart() {
+        // Clear timers and state
+        lastUpdate = 0
+        damageCooldown = 0
+        spawnTimer = 0
+        fireCooldown = 0
+        enemyFireCooldowns.removeAll()
+
+        // Remove all nodes and actions
+        removeAllActions()
+        removeAllChildren()
+
+        // Reset joystick state
+        touchIdentifier = nil
+        joystickVisible = false
+        velocity = .zero
+
+        // Rebuild scene
+        configureScene()
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -181,8 +212,10 @@ final class GameScene: SKScene {
 
         // Move projectiles and handle collisions
         moveProjectiles(dt: dt)
+        moveEnemyBolts(dt: dt)
         handleProjectileCollisions()
         checkPlayerEnemyContact()
+        checkEnemyBoltHitPlayer()
     }
 
     // MARK: - Touches (simple joystick on left half)
@@ -231,24 +264,20 @@ final class GameScene: SKScene {
         // Remove previous aim line
         childNode(withName: "autoAim")?.removeFromParent()
 
-        // Placeholder auto-aim: draw a thin red line from player forward in velocity direction
-        if velocity.dx != 0 || velocity.dy != 0 {
-            let lineLength: CGFloat = 100
-            let endPoint = CGPoint(
-                x: player.position.x + velocity.dx * lineLength,
-                y: player.position.y + velocity.dy * lineLength
-            )
-            let path = CGMutablePath()
-            path.move(to: player.position)
-            path.addLine(to: endPoint)
+        // Only show aim when standing still and a target exists
+        let isStandingStill = (abs(velocity.dx) < 0.001 && abs(velocity.dy) < 0.001)
+        guard isStandingStill, let target = nearestEnemyPosition() else { return }
 
-            let lineNode = SKShapeNode(path: path)
-            lineNode.name = "autoAim"
-            lineNode.strokeColor = .red
-            lineNode.lineWidth = 2
-            lineNode.zPosition = 10
-            addChild(lineNode)
-        }
+        let path = CGMutablePath()
+        path.move(to: player.position)
+        path.addLine(to: target)
+
+        let lineNode = SKShapeNode(path: path)
+        lineNode.name = "autoAim"
+        lineNode.strokeColor = .red
+        lineNode.lineWidth = 2
+        lineNode.zPosition = 10
+        addChild(lineNode)
     }
 
     private func showJoystick(_ show: Bool) {
@@ -285,31 +314,43 @@ final class GameScene: SKScene {
         default: pos = CGPoint(x: CGFloat.random(in: 0...size.width), y: size.height + margin)
         }
 
-        let node = SKSpriteNode(texture: PixelAssets.slimeTexture())
+        let isRanged = Bool.random()
+        let node = SKSpriteNode(texture: isRanged ? PixelAssets.cultistTexture() : PixelAssets.slimeTexture())
         node.setScale(3.0)
         node.name = enemyCategoryName
         node.position = pos
         node.zPosition = 5
+        node.userData = [enemyTypeKey: isRanged ? 1 : 0, enemyHPKey: 3]
         addChild(node)
     }
 
     private func moveEnemies(dt: TimeInterval) {
         enumerateChildNodes(withName: enemyCategoryName) { node, _ in
-            guard let enemy = node as? SKShapeNode else {
-                let toPlayer = CGVector(dx: self.player.position.x - node.position.x, dy: self.player.position.y - node.position.y)
-                let len = max(1, hypot(toPlayer.dx, toPlayer.dy))
-                let nx = toPlayer.dx / len
-                let ny = toPlayer.dy / len
-                node.position.x += nx * self.enemySpeed * CGFloat(dt)
-                node.position.y += ny * self.enemySpeed * CGFloat(dt)
-                return
-            }
+            guard let enemy = node as? SKSpriteNode else { return }
             let toPlayer = CGVector(dx: self.player.position.x - enemy.position.x, dy: self.player.position.y - enemy.position.y)
-            let len = max(1, hypot(toPlayer.dx, toPlayer.dy))
-            let nx = toPlayer.dx / len
-            let ny = toPlayer.dy / len
-            enemy.position.x += nx * self.enemySpeed * CGFloat(dt)
-            enemy.position.y += ny * self.enemySpeed * CGFloat(dt)
+            let dist = max(1, hypot(toPlayer.dx, toPlayer.dy))
+            let nx = toPlayer.dx / dist
+            let ny = toPlayer.dy / dist
+            let etype = (enemy.userData?[self.enemyTypeKey] as? Int) ?? 0
+            if etype == 1 {
+                // Ranged: stop at range, face player, and fire
+                if dist > self.enemyRange * 0.9 {
+                    enemy.position.x += nx * self.enemySpeed * CGFloat(dt)
+                    enemy.position.y += ny * self.enemySpeed * CGFloat(dt)
+                }
+                // Fire at intervals
+                let cd = self.enemyFireCooldowns[enemy] ?? 0
+                if cd <= 0, dist <= self.enemyRange {
+                    self.fireEnemyBolt(from: enemy.position, toward: self.player.position)
+                    self.enemyFireCooldowns[enemy] = 1.2
+                } else {
+                    self.enemyFireCooldowns[enemy] = max(0, cd - dt)
+                }
+            } else {
+                // Chaser: move toward player
+                enemy.position.x += nx * self.enemySpeed * CGFloat(dt)
+                enemy.position.y += ny * self.enemySpeed * CGFloat(dt)
+            }
         }
     }
 
@@ -363,7 +404,8 @@ final class GameScene: SKScene {
                 "vx": dir.dx * projectileSpeed,
                 "vy": dir.dy * projectileSpeed,
                 "ttl": projectileLifetime,
-                "pierce": runState?.player.pierce ?? 0
+                "pierce": runState?.player.pierce ?? 0,
+                "dmg": 1
             ]
             addChild(node)
         }
@@ -383,6 +425,19 @@ final class GameScene: SKScene {
             } else {
                 data["ttl"] = ttl
             }
+        }
+    }
+    
+    private func moveEnemyBolts(dt: TimeInterval) {
+        enumerateChildNodes(withName: "enemy_bolt") { node, _ in
+            guard let data = node.userData else { return }
+            let vx = data["vx"] as? CGFloat ?? 0
+            let vy = data["vy"] as? CGFloat ?? 0
+            var ttl = data["ttl"] as? TimeInterval ?? 0
+            node.position.x += vx * CGFloat(dt)
+            node.position.y += vy * CGFloat(dt)
+            ttl -= dt
+            if ttl <= 0 { node.removeFromParent() } else { data["ttl"] = ttl }
         }
     }
 
@@ -413,8 +468,24 @@ final class GameScene: SKScene {
                 let dy = pNode.position.y - eNode.position.y
                 let dist2 = dx*dx + dy*dy
                 if dist2 < 16*16 { // hit radius ~16
+                    let baseDamage = (data["dmg"] as? Int) ?? 1
+                    let isCrit = Double.random(in: 0...1) < (self.runState?.player.critChance ?? 0)
+                    let critMultiplier = 2.0
+                    let appliedDamage = isCrit ? Int(Double(baseDamage) * critMultiplier) : baseDamage
+
+                    // VFX for hits (extra spark on crit)
                     self.hitVFX(at: eNode.position)
-                    enemiesToRemove.append(eNode)
+                    if isCrit { self.hitVFX(at: eNode.position) }
+
+                    // Decrement enemy HP stored in userData
+                    var ehp = (eNode.userData?[self.enemyHPKey] as? Int) ?? 1
+                    ehp = max(0, ehp - appliedDamage)
+                    eNode.userData?[self.enemyHPKey] = ehp
+
+                    if ehp <= 0 {
+                        enemiesToRemove.append(eNode)
+                    }
+
                     if pierceRemaining > 0 {
                         pierceRemaining -= 1
                         data["pierce"] = pierceRemaining
@@ -433,6 +504,11 @@ final class GameScene: SKScene {
 
         let uniqueEnemies = uniqueNodes(enemiesToRemove)
         let uniqueProjectiles = uniqueNodes(projectilesToRemove)
+
+        // Cleanup per-enemy cooldown entries for removed enemies
+        for enemy in uniqueEnemies {
+            self.enemyFireCooldowns[enemy] = nil
+        }
 
         // Remove nodes
         for node in uniqueProjectiles { node.removeFromParent() }
@@ -472,8 +548,37 @@ final class GameScene: SKScene {
             if run.player.currentHealth == 0 {
                 self.isPaused = true
                 run.isPaused = true
+                run.isGameOver = true
             }
         }
+    }
+    
+    private func checkEnemyBoltHitPlayer() {
+        var toRemove: [SKNode] = []
+        enumerateChildNodes(withName: "enemy_bolt") { bolt, _ in
+            let dx = bolt.position.x - self.player.position.x
+            let dy = bolt.position.y - self.player.position.y
+            let dist2 = dx*dx + dy*dy
+            if dist2 < 16*16 { // hit radius
+                toRemove.append(bolt)
+                // Reuse player damage path (respects i-frames)
+                if self.damageCooldown == 0, let run = self.runState {
+                    run.player.currentHealth = max(0, run.player.currentHealth - 10)
+                    self.damageCooldown = self.damageIFrame
+                    let flash = SKAction.sequence([
+                        .fadeAlpha(to: 0.2, duration: 0.05),
+                        .fadeAlpha(to: 1.0, duration: 0.15)
+                    ])
+                    self.player.run(flash)
+                    if run.player.currentHealth == 0 {
+                        self.isPaused = true
+                        run.isPaused = true
+                        run.isGameOver = true
+                    }
+                }
+            }
+        }
+        for n in toRemove { n.removeFromParent() }
     }
 
     private func hitVFX(at point: CGPoint) {
@@ -486,6 +591,23 @@ final class GameScene: SKScene {
         addChild(spr)
         let anim = SKAction.animate(with: frames, timePerFrame: 0.05)
         spr.run(.sequence([anim, .removeFromParent()]))
+    }
+    
+    private func fireEnemyBolt(from: CGPoint, toward: CGPoint) {
+        let angle = atan2(toward.y - from.y, toward.x - from.x)
+        let dir = CGVector(dx: cos(angle), dy: sin(angle))
+        let bolt = SKSpriteNode(texture: PixelAssets.boltTexture())
+        bolt.setScale(3.0)
+        bolt.name = "enemy_bolt"
+        bolt.position = from
+        bolt.zPosition = 6
+        bolt.zRotation = angle
+        bolt.userData = [
+            "vx": dir.dx * enemyBoltSpeed,
+            "vy": dir.dy * enemyBoltSpeed,
+            "ttl": 3.0
+        ]
+        addChild(bolt)
     }
 }
 
