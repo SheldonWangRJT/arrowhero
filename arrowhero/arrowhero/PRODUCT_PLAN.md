@@ -113,7 +113,7 @@ Last updated: 2026-02-13
 - [x] Define economy model
 
 ### Milestone 1 (Week 2–4): Core Gameplay MVP
-- [x] Player controller (movement, aim/auto-aim) (movement)
+- [x] Player controller (movement with visible joystick, aim/auto-aim)
 - [ ] Combat loop (fire rate, damage, collision)
 - [ ] Upgrades (at least 6)
   - [ ] Damage, Attack Speed, Extra Projectile, Pierce, Crit Chance, Projectile Speed
@@ -197,4 +197,5 @@ struct Economy { /* prices, rewards */ }
 // Game Flow
 final class RunState: ObservableObject { /* xp, level, choices, apply upgrade */ }
 final class Spawner { /* time-based spawn budget */ }
+
 
