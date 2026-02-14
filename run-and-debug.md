@@ -1,5 +1,7 @@
 # Running & Debugging arrowhero in Cursor
 
+See [README.md](README.md) for project overview.
+
 ## Quick start
 
 1. **Open the project** in Cursor: `File > Open Folder` → select `arrowhero`

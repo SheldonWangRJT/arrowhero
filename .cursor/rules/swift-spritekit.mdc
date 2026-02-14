@@ -1,0 +1,23 @@
+---
+description: Swift, SpriteKit, and SwiftUI patterns for arrowhero game
+globs: "**/*.swift"
+alwaysApply: false
+---
+
+# arrowhero Swift / SpriteKit Conventions
+
+## Structure
+- **GameRunState** (ObservableObject): single source of truth; holds PlayerStats, LevelingSystem, pause, game-over
+- **GameScene** (SKScene): reads `runState.player` for moveSpeed, attackSpeed, projectileCount, pierce
+- **ContentView**: embeds GameScene, shows overlays (pause, upgrade picker)
+- Upgrades apply via `Upgrade.apply(&player)`; GameScene observes runState
+
+## SpriteKit
+- Use `SKTexture.filteringMode = .nearest` for pixel art
+- Collision: de-duplicate projectile/enemy removals per frame
+- Spawner: time-based budget; scale density over time (see docs/ROADMAP)
+
+## SwiftUI
+- Pass `@EnvironmentObject GameRunState` into SwiftUI views
+- Persist GameScene instance in ContentView (avoid re-creation during overlays)
+- Pause: bind `runState.isPaused`; scene pauses/unpauses accordingly
