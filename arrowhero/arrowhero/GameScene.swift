@@ -16,14 +16,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // Player damage / i-frames
     private var damageCooldown: TimeInterval = 0
     private let damageIFrame: TimeInterval = 1.0
-    private let contactDamage: Int = 10
+    private let contactDamage: Int = 8
 
     // Enemy spawning properties
     private var spawnTimer: TimeInterval = 0
     private var spawnInterval: TimeInterval = 2.0
     private let enemySpeed: CGFloat = 80
     private let enemyCategoryName = "enemy"
-    private let enemyTypeKey = "etype" // 0=slime(chaser), 1=cultist(ranged)
+    private let enemyTypeKey = "etype" // 0=slime, 1=cultist(ranged), 2=bug(tank), 3=dasher(fast), 4=bat(swarm)
     private let enemyHPKey = "ehp"
     private let enemyRange: CGFloat = 220
     private var enemyFireCooldowns: [SKNode: TimeInterval] = [:]
@@ -335,13 +335,29 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         default: pos = CGPoint(x: CGFloat.random(in: 0...size.width), y: size.height + margin)
         }
 
-        let isRanged = Bool.random()
-        let node = SKSpriteNode(texture: isRanged ? PixelAssets.cultistTexture() : PixelAssets.slimeTexture())
+        // 0=slime, 1=cultist, 2=bug tank, 3=dasher, 4=bat (weighted spawn)
+        let roll = Int.random(in: 0..<12)
+        let etype: Int
+        let tex: SKTexture
+        let hp: Int
+        if roll < 4 {
+            etype = 0; tex = PixelAssets.slimeTexture(); hp = 3
+        } else if roll < 7 {
+            etype = 1; tex = PixelAssets.cultistTexture(); hp = 3
+        } else if roll < 9 {
+            etype = 2; tex = PixelAssets.bugTankTexture(); hp = 6
+        } else if roll < 11 {
+            etype = 3; tex = PixelAssets.dasherTexture(); hp = 2
+        } else {
+            etype = 4; tex = PixelAssets.batTexture(); hp = 1
+        }
+
+        let node = SKSpriteNode(texture: tex)
         node.setScale(3.0)
         node.name = enemyCategoryName
         node.position = pos
         node.zPosition = 5
-        node.userData = [enemyTypeKey: isRanged ? 1 : 0, enemyHPKey: 3]
+        node.userData = [enemyTypeKey: etype, enemyHPKey: hp]
 
         // Physics body — prevents overlap with player and other enemies
         let enemyRadius: CGFloat = 12
@@ -367,13 +383,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let ny = toPlayer.dy / dist
             let etype = (enemy.userData?[self.enemyTypeKey] as? Int) ?? 0
             if etype == 1 {
-                // Ranged: stop at range, face player, and fire
+                // Ranged (cultist): stop at range, face player, and fire
                 if dist > self.enemyRange * 0.9 {
                     enemy.physicsBody?.velocity = CGVector(dx: nx * self.enemySpeed, dy: ny * self.enemySpeed)
                 } else {
                     enemy.physicsBody?.velocity = .zero
                 }
-                // Fire at intervals
                 let cd = self.enemyFireCooldowns[enemy] ?? 0
                 if cd <= 0, dist <= self.enemyRange {
                     self.fireEnemyBolt(from: enemy.position, toward: self.player.position)
@@ -382,8 +397,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     self.enemyFireCooldowns[enemy] = max(0, cd - dt)
                 }
             } else {
-                // Chaser: move toward player (physics handles collision with player/other enemies)
-                enemy.physicsBody?.velocity = CGVector(dx: nx * self.enemySpeed, dy: ny * self.enemySpeed)
+                // Chasers: slime(80), bug(48), dasher(130), bat(100)
+                let speed: CGFloat
+                switch etype {
+                case 2: speed = self.enemySpeed * 0.6   // Bug tank: slow
+                case 3: speed = self.enemySpeed * 1.6   // Dasher: fast
+                case 4: speed = self.enemySpeed * 1.25  // Bat: nimble
+                default: speed = self.enemySpeed
+                }
+                enemy.physicsBody?.velocity = CGVector(dx: nx * speed, dy: ny * speed)
             }
         }
     }
@@ -550,7 +572,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         // Grant XP for each enemy killed
         if !uniqueEnemies.isEmpty {
-            let xpPerKill = 5
+            let xpPerKill = 12
             runState?.levelSystem.grantXP(xpPerKill * uniqueEnemies.count)
         }
     }

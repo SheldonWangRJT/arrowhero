@@ -21,3 +21,8 @@ alwaysApply: false
 - Pass `@EnvironmentObject GameRunState` into SwiftUI views
 - Persist GameScene instance in ContentView (avoid re-creation during overlays)
 - Pause: bind `runState.isPaused`; scene pauses/unpauses accordingly
+
+## Workflow
+- After making changes you are confident in, **build and run** the app to verify
+- Build: `./build.sh` from project root
+- Run: `xcrun simctl install booted <path-to-arrowhero.app> && xcrun simctl launch booted sdw.arrowhero`

@@ -1,5 +1,6 @@
 import SpriteKit
 import CoreGraphics
+import UIKit
 
 // MARK: - PixelArtKit
 // Build SKTextures from tiny pixel grids (ASCII legend) with nearest-neighbor filtering.
@@ -86,6 +87,29 @@ enum PixelArt {
         node.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         return node
     }
+
+    /// Create UIImage from ASCII grid (for SwiftUI/UIKit).
+    static func uiImage(rows: [String], legend: [Character: UInt32]) -> UIImage? {
+        let (buf, w, h) = pixels(from: rows, legend: legend)
+        var data = buf
+        let bytesPerPixel = 4
+        let bytesPerRow = w * bytesPerPixel
+        guard let provider = CGDataProvider(data: NSData(bytes: &data, length: data.count * bytesPerPixel)),
+              let cgImage = CGImage(
+                width: w,
+                height: h,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ) else { return nil }
+        return UIImage(cgImage: cgImage)
+    }
 }
 
 // MARK: - Prebuilt Assets (ASCII grids)
@@ -111,20 +135,52 @@ struct PixelAssets {
         "B": PixelArt.Palette.brown,
     ]
 
-    // Player (hooded archer) 12x12
+    // Hero 1 — mech-archer (default) 12x12, blue/cyan
     static let playerRows: [String] = [
+        "....cccc....",
+        "...cwwcc....",
+        "..cwwwcc....",
+        "..cwwkcc....",
+        "...cbbbc....",
+        "..cbbbbc....",
+        ".ccbbbbcc...",
+        "..cbbbbbcc..",
+        "..cgggggc...",
+        ".cgggggggc..",
+        ".cgg..gggc..",
+        "..cc....cc..",
+    ]
+
+    // Hero 2 — armored scout 12x12 (gray/orange)
+    static let hero2Rows: [String] = [
         "....gggg....",
-        "...gwwwwg...",
-        "..gwwywwwg..",
-        "..gwwwwwgg..",
-        "..gwwkwwwg..",
-        "...gwwwgg...",
-        "....gwwg....",
-        "..BBBBBBBB..",
-        "..BggggggB..",
-        "..BggggggB..",
-        "...BBBBBB...",
-        "....B..B....",
+        "...gwwgg....",
+        "..gwwwwgg...",
+        "..gwwkgg....",
+        "...gooog....",
+        "..goooogg...",
+        ".ggooooogg..",
+        "..goooogg...",
+        "..gdddddg...",
+        ".gdddddddg..",
+        ".gd..dddg...",
+        "..gg....gg..",
+    ]
+
+    // Hero 3 — swift striker 12x12 (yellow/cyan)
+    static let hero3Rows: [String] = [
+        "....yyyy....",
+        "...ywwyy....",
+        "..ywwwwyy...",
+        "..ywwkyy....",
+        "...ywwyy....",
+        "..ywwwwyy...",
+        ".yywwwwyyy..",
+        "..ywwwwyy...",
+        "..ycccccy...",
+        ".yccccccyy..",
+        ".yc..cccy...",
+        "..yy....yy..",
     ]
 
     // Slime (chaser) 12x12
@@ -172,6 +228,22 @@ struct PixelAssets {
         "...rrrrr....",
         "....rrr.....",
         ".....r......",
+        "............",
+    ]
+
+    // Bat (fast, low-HP) 12x12
+    static let batRows: [String] = [
+        ".....kk......",
+        "....kkkk....",
+        "...kkkkkk...",
+        "..kkkddkkk..",
+        ".kkkddddkkk.",
+        "kkddddddddkk",
+        ".kkkddddkkk.",
+        "..kkkddkkk..",
+        "...kkkkkk...",
+        "....kkkk....",
+        ".....kk.....",
         "............",
     ]
 
@@ -271,9 +343,12 @@ struct PixelAssets {
 
     // Factory functions (textures)
     static func playerTexture() -> SKTexture { PixelArt.texture(rows: playerRows, legend: legend) }
+    static func hero2Texture() -> SKTexture { PixelArt.texture(rows: hero2Rows, legend: legend) }
+    static func hero3Texture() -> SKTexture { PixelArt.texture(rows: hero3Rows, legend: legend) }
     static func slimeTexture() -> SKTexture { PixelArt.texture(rows: slimeRows, legend: legend) }
     static func bugTankTexture() -> SKTexture { PixelArt.texture(rows: bugRows, legend: legend) }
     static func dasherTexture() -> SKTexture { PixelArt.texture(rows: dasherRows, legend: legend) }
+    static func batTexture() -> SKTexture { PixelArt.texture(rows: batRows, legend: legend) }
     static func cultistTexture() -> SKTexture { PixelArt.texture(rows: cultistRows, legend: legend) }
     static func arrowTexture() -> SKTexture { PixelArt.texture(rows: arrowRows, legend: legend) }
     static func boltTexture() -> SKTexture { PixelArt.texture(rows: boltRows, legend: legend) }
@@ -286,6 +361,93 @@ struct PixelAssets {
             PixelArt.texture(rows: hitSpark2, legend: legend),
             PixelArt.texture(rows: hitSpark3, legend: legend)
         ]
+    }
+
+    // Upgrade icons 10x10 (pixel art for UI cards)
+    private static let iconDamageRows: [String] = [
+        "....rr....",
+        "...rrr....",
+        "..rrrrr...",
+        "rrroorr...",
+        "..rrrrr...",
+        "....rr....",
+        "...rr.....",
+        "..rr......",
+        ".rr.......",
+        "..........",
+    ]
+    private static let iconAttackSpeedRows: [String] = [
+        "....oo....",
+        "..oooooo..",
+        ".oo....oo.",
+        ".o..oo..o.",
+        ".o.o..o.o.",
+        ".o......o.",
+        ".o......o.",
+        ".o......o.",
+        "..oooooo..",
+        "..........",
+    ]
+    private static let iconMoveSpeedRows: [String] = [
+        "....BB....",
+        "...BBB....",
+        "..BBBBB...",
+        ".BBBBBB..",
+        ".BBBBBB...",
+        "..BBBB....",
+        "..BBBB....",
+        ".BBBBBB...",
+        ".BBBBBB..",
+        "..........",
+    ]
+    private static let iconExtraProjectileRows: [String] = [
+        ".....rr...",
+        "....rrr...",
+        "...rrrr...",
+        "..rr.rr...",
+        ".rr..rr...",
+        "rr...rr...",
+        ".rr..rr...",
+        "..rr.rr...",
+        "...rrrr...",
+        "..........",
+    ]
+    private static let iconPierceRows: [String] = [
+        "....GG....",
+        "...GGG....",
+        "..GGGGG...",
+        "GGG...GGG.",
+        "..GGGGG...",
+        "....G.....",
+        "....G.....",
+        "....G.....",
+        "....G.....",
+        "..........",
+    ]
+    private static let iconCritRows: [String] = [
+        ".....y....",
+        "....yyy...",
+        "...yyyyy..",
+        "..yyyoyyy.",
+        ".yyyoyyy..",
+        "...yyyyy..",
+        "....yyy...",
+        ".....y....",
+        "..........",
+        "..........",
+    ]
+
+    static func upgradeIcon(for id: UpgradeID) -> UIImage? {
+        let rows: [String]
+        switch id {
+        case .damageUp: rows = iconDamageRows
+        case .attackSpeedUp: rows = iconAttackSpeedRows
+        case .moveSpeedUp: rows = iconMoveSpeedRows
+        case .extraProjectile: rows = iconExtraProjectileRows
+        case .pierce: rows = iconPierceRows
+        case .critChance: rows = iconCritRows
+        }
+        return PixelArt.uiImage(rows: rows, legend: legend)
     }
 
     // Convenience sprites

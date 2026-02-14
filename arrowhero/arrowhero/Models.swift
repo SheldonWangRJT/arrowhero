@@ -2,8 +2,8 @@ import Foundation
 import Combine
 
 struct PlayerStats {
-    var maxHealth: Int = 100
-    var currentHealth: Int = 100
+    var maxHealth: Int = 120
+    var currentHealth: Int = 120
     var damage: Double = 10
     var attackSpeed: Double = 1.0
     var moveSpeed: Int = 220
@@ -42,7 +42,7 @@ func defaultUpgrades() -> [Upgrade] {
 final class LevelingSystem: ObservableObject {
     @Published private(set) var level: Int = 1
     @Published private(set) var currentXP: Int = 0
-    @Published private(set) var xpToNext: Int = 20
+    @Published private(set) var xpToNext: Int = 10  // 10 XP to reach level 2 (1–2 kills)
     @Published var pendingChoices: [Upgrade] = []
     @Published var presentingLevel: Int? = nil
     private(set) var queuedLevelUps: Int = 0
@@ -80,7 +80,8 @@ final class LevelingSystem: ObservableObject {
     }
 
     private func xpRequirement(for level: Int) -> Int {
-        20 + Int(Double(level - 1) * 10.0 + pow(Double(level), 1.2))
+        // Gentler curve: 10, 18, 26, 34... (+8 per level) so early levels feel rewarding
+        10 + (level - 1) * 8
     }
 }
 
