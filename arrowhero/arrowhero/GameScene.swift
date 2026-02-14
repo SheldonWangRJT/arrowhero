@@ -2,52 +2,42 @@ import SpriteKit
 import SwiftUI
 import Combine
 
-// Physics categories
-private let playerCategory: UInt32 = 0b1
-private let enemyCategory: UInt32 = 0b10
-
 final class GameScene: SKScene, SKPhysicsContactDelegate {
     weak var runState: GameRunState?
 
-    private let player = SKNode()
-    private var velocity = CGVector(dx: 0, dy: 0)
-    private var lastUpdate: TimeInterval = 0
+    // MARK: - State (internal for extensions)
+    let player = SKNode()
+    var velocity = CGVector(dx: 0, dy: 0)
+    var lastUpdate: TimeInterval = 0
 
-    // Player damage / i-frames
-    private var damageCooldown: TimeInterval = 0
-    private let damageIFrame: TimeInterval = 1.0
-    private let contactDamage: Int = 8
+    var damageCooldown: TimeInterval = 0
 
-    // Enemy spawning properties
-    private var spawnTimer: TimeInterval = 0
-    private var spawnInterval: TimeInterval = 2.0
-    private let enemySpeed: CGFloat = 80
-    private let enemyCategoryName = "enemy"
-    private let enemyTypeKey = "etype" // 0=slime, 1=cultist(ranged), 2=bug(tank), 3=dasher(fast), 4=bat(swarm)
-    private let enemyHPKey = "ehp"
-    private let enemyRange: CGFloat = 220
-    private var enemyFireCooldowns: [SKNode: TimeInterval] = [:]
-    private let enemyBoltSpeed: CGFloat = 200
+    var spawnTimer: TimeInterval = 0
+    var spawnInterval: TimeInterval = 2.0
 
-    // Projectile properties
-    private var fireCooldown: TimeInterval = 0
-    private let projectileSpeed: CGFloat = 360
-    private let projectileLifetime: TimeInterval = 2.0
-    private let projectileCategoryName = "projectile"
+    var fireCooldown: TimeInterval = 0
 
-    // Simple joystick tracking
-    private var touchIdentifier: UITouch?
-    private var joystickOrigin: CGPoint = .zero
-    private let joystickBase = SKShapeNode(circleOfRadius: 40)
-    private let joystickThumb = SKShapeNode(circleOfRadius: 18)
-    private var joystickVisible: Bool = false
+    var touchIdentifier: UITouch?
+    var joystickOrigin = CGPoint.zero
+    let joystickBase = SKShapeNode(circleOfRadius: 40)
+    let joystickThumb = SKShapeNode(circleOfRadius: 18)
+    var joystickVisible = false
 
-    // HUD elements (follow player)
-    private let hudNode = SKNode()
-    private let hpBg = SKSpriteNode(color: .white.withAlphaComponent(0.2), size: CGSize(width: 40, height: 3))
-    private let hpFill = SKSpriteNode(color: .red, size: CGSize(width: 40, height: 3))
-    private let xpBg = SKSpriteNode(color: .white.withAlphaComponent(0.15), size: CGSize(width: 40, height: 2))
-    private let xpFill = SKSpriteNode(color: .blue, size: CGSize(width: 40, height: 2))
+    let hudNode = SKNode()
+    let hpBg = SKSpriteNode(color: .white.withAlphaComponent(0.2), size: CGSize(width: 40, height: 3))
+    let hpFill = SKSpriteNode(color: .red, size: CGSize(width: 40, height: 3))
+    let xpBg = SKSpriteNode(color: .white.withAlphaComponent(0.15), size: CGSize(width: 40, height: 2))
+    let xpFill = SKSpriteNode(color: .blue, size: CGSize(width: 40, height: 2))
+
+    let enemyCategoryName = "enemy"
+    let enemyBoltName = "enemy_bolt"
+    let enemyTypeKey = "etype"
+    let enemyHPKey = "ehp"
+    var enemyFireCooldowns: [SKNode: TimeInterval] = [:]
+
+    let projectileCategoryName = "projectile"
+
+    // MARK: - Scene Lifecycle
 
     override func didMove(to view: SKView) {
         backgroundColor = .black
@@ -57,73 +47,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func configureScene() {
-        player.position = CGPoint(x: size.width/2, y: size.height/2)
-
-        // Physics body — prevents overlap with enemies
-        let playerRadius: CGFloat = 14
-        player.physicsBody = SKPhysicsBody(circleOfRadius: playerRadius)
-        player.physicsBody?.isDynamic = true
-        player.physicsBody?.affectedByGravity = false
-        player.physicsBody?.allowsRotation = false
-        player.physicsBody?.restitution = 0.3
-        player.physicsBody?.friction = 0.2
-        player.physicsBody?.categoryBitMask = playerCategory
-        player.physicsBody?.collisionBitMask = enemyCategory
-        player.physicsBody?.contactTestBitMask = enemyCategory
-
-        // Background ground tiling
         setupGround()
-
-        // Player sprite
-        let playerSprite = SKSpriteNode(texture: PixelAssets.playerTexture())
-        playerSprite.setScale(3.0)
-        playerSprite.zPosition = 10
-        player.addChild(playerSprite)
-
-        if player.parent == nil { addChild(player) }
-
-        // Setup HUD bars that follow the player
-        hudNode.zPosition = 100
-        hudNode.position = CGPoint(x: 0, y: 30)
-        if hudNode.parent == nil { player.addChild(hudNode) }
-
-        // Configure anchors so scaling the fill adjusts width from left to right
-        for node in [hpBg, hpFill, xpBg, xpFill] {
-            node.anchorPoint = CGPoint(x: 0, y: 0.5)
-        }
-
-        // Position backgrounds and fills centered above player
-        let hpWidth: CGFloat = 40
-        let xpWidth: CGFloat = 40
-        hpBg.position = CGPoint(x: -hpWidth/2, y: 0)
-        hpFill.position = CGPoint(x: -hpWidth/2, y: 0)
-        xpBg.position = CGPoint(x: -xpWidth/2, y: -5)
-        xpFill.position = CGPoint(x: -xpWidth/2, y: -5)
-
-        hudNode.addChild(hpBg)
-        hudNode.addChild(hpFill)
-        hudNode.addChild(xpBg)
-        hudNode.addChild(xpFill)
-
-        // Initialize to current ratios
-        let hpRatio = CGFloat(max(0, min(1, Double(runState?.player.currentHealth ?? 0) / Double(runState?.player.maxHealth ?? 1))))
-        hpFill.xScale = hpRatio
-        let xpRatio = CGFloat(max(0, min(1, Double(runState?.levelSystem.currentXP ?? 0) / Double(runState?.levelSystem.xpToNext == 0 ? 1 : runState?.levelSystem.xpToNext ?? 1))))
-        xpFill.xScale = xpRatio
-
-        joystickBase.strokeColor = .clear
-        joystickBase.fillColor = .white.withAlphaComponent(0.12)
-        joystickBase.alpha = 0
-        joystickBase.zPosition = 50
-        if joystickBase.parent == nil { addChild(joystickBase) }
-
-        joystickThumb.strokeColor = .clear
-        joystickThumb.fillColor = .white.withAlphaComponent(0.5)
-        joystickThumb.alpha = 0
-        joystickThumb.zPosition = 51
-        if joystickThumb.parent == nil { addChild(joystickThumb) }
-
-        self.isPaused = runState?.isPaused ?? false
+        configurePlayer()
+        configureHUD()
+        configureJoystick()
+        isPaused = runState?.isPaused ?? false
     }
 
     private func setupGround() {
@@ -150,108 +78,78 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     public func restart() {
-        // Clear timers and state
         lastUpdate = 0
         damageCooldown = 0
         spawnTimer = 0
         fireCooldown = 0
         enemyFireCooldowns.removeAll()
 
-        // Remove all nodes and actions — clear subtrees first so configureScene can re-add
         player.removeAllChildren()
         hudNode.removeAllChildren()
         removeAllActions()
         removeAllChildren()
 
-        // Reset joystick state
         touchIdentifier = nil
         joystickVisible = false
         velocity = .zero
 
-        // Rebuild scene
         configureScene()
     }
 
+    // MARK: - Update Loop
+
     override func update(_ currentTime: TimeInterval) {
-        // Pause support
         guard lastUpdate > 0 else { lastUpdate = currentTime; return }
         let dt = currentTime - lastUpdate
         lastUpdate = currentTime
 
-        if let paused = runState?.isPaused { self.isPaused = paused }
-        if self.isPaused { return }
+        if let paused = runState?.isPaused { isPaused = paused }
+        if isPaused { return }
 
-        // Update run elapsed time
         runState?.elapsedTime += dt
-
-        // Decrement i-frame cooldown
         damageCooldown = max(0, damageCooldown - dt)
 
-        // Spawn scaling over time (reduce interval from 2.0 to 0.4 over ~3 minutes)
+        // Spawn interval ramp
         let time = runState?.elapsedTime ?? 0
-        let minInterval: TimeInterval = 0.4
-        let maxInterval: TimeInterval = 2.0
-        let rampDuration: TimeInterval = 180 // seconds
-        let t = min(1.0, time / rampDuration)
-        spawnInterval = max(minInterval, maxInterval - (maxInterval - minInterval) * t)
+        let t = min(1.0, time / GameConstants.spawnRampDuration)
+        spawnInterval = max(
+            GameConstants.spawnMinInterval,
+            GameConstants.spawnMaxInterval - (GameConstants.spawnMaxInterval - GameConstants.spawnMinInterval) * t
+        )
 
-        // Movement via physics velocity (physics engine prevents overlap)
-        let speed = CGFloat(runState?.player.moveSpeed ?? 220)
-        var targetVel = CGVector(dx: velocity.dx * speed, dy: velocity.dy * speed)
-        let inset: CGFloat = 20
-        if player.position.x <= inset && targetVel.dx < 0 { targetVel.dx = 0 }
-        if player.position.x >= size.width - inset && targetVel.dx > 0 { targetVel.dx = 0 }
-        if player.position.y <= inset && targetVel.dy < 0 { targetVel.dy = 0 }
-        if player.position.y >= size.height - inset && targetVel.dy > 0 { targetVel.dy = 0 }
-        player.physicsBody?.velocity = targetVel
-        player.position.x = max(inset, min(size.width - inset, player.position.x))
-        player.position.y = max(inset, min(size.height - inset, player.position.y))
-
-        // Auto-aim placeholder (draw a line or similar)
+        applyPlayerMovement(dt: dt)
         drawAutoAim()
 
-        // Spawner
         spawnTimer += dt
         if spawnTimer >= spawnInterval {
             spawnTimer = 0
             spawnEnemy()
         }
 
-        // Move enemies toward player
         moveEnemies(dt: dt)
-
-        // Auto-fire
         handleAutoFire(dt)
-        
-        // Update HUD bars to reflect current health and XP
-        if let run = runState {
-            let hpRatio = CGFloat(max(0, min(1, Double(run.player.currentHealth) / Double(max(1, run.player.maxHealth)))))
-            hpFill.xScale = hpRatio
-            let xpToNext = max(1, run.levelSystem.xpToNext)
-            let xpRatio = CGFloat(max(0, min(1, Double(run.levelSystem.currentXP) / Double(xpToNext))))
-            xpFill.xScale = xpRatio
-        }
+        updateHUDRatios()
 
-        // Move projectiles and handle collisions
         moveProjectiles(dt: dt)
         moveEnemyBolts(dt: dt)
         handleProjectileCollisions()
         checkEnemyBoltHitPlayer()
     }
 
-    // MARK: - Touches (simple joystick on left half)
+    // MARK: - Touches
+
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard touchIdentifier == nil, let touch = touches.first else { return }
         let location = touch.location(in: self)
-        if location.x < size.width * 0.5 {
-            touchIdentifier = touch
-            joystickOrigin = location
-            updateVelocity(for: touch)
-            joystickBase.position = joystickOrigin
-            joystickThumb.position = joystickOrigin
-            showJoystick(true)
-            updateJoystickThumb(for: touch)
-        }
+        guard location.x < size.width * 0.5 else { return }
+
+        touchIdentifier = touch
+        joystickOrigin = location
+        updateVelocity(for: touch)
+        joystickBase.position = joystickOrigin
+        joystickThumb.position = joystickOrigin
+        showJoystick(true)
+        updateJoystickThumb(for: touch)
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -271,391 +169,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         touchesEnded(touches, with: event)
     }
 
-    private func updateVelocity(for touch: UITouch) {
-        let location = touch.location(in: self)
-        var dx = location.x - joystickOrigin.x
-        var dy = location.y - joystickOrigin.y
-        let len = max(1, hypot(dx, dy))
-        dx /= len
-        dy /= len
-        velocity = CGVector(dx: dx, dy: dy)
-    }
+    // MARK: - SKPhysicsContactDelegate
 
-    private func drawAutoAim() {
-        // Remove previous aim line
-        childNode(withName: "autoAim")?.removeFromParent()
-
-        // Only show aim when standing still and a target exists
-        let isStandingStill = (abs(velocity.dx) < 0.001 && abs(velocity.dy) < 0.001)
-        guard isStandingStill, let target = nearestEnemyPosition() else { return }
-
-        let path = CGMutablePath()
-        path.move(to: player.position)
-        path.addLine(to: target)
-
-        let lineNode = SKShapeNode(path: path)
-        lineNode.name = "autoAim"
-        lineNode.strokeColor = .red
-        lineNode.lineWidth = 2
-        lineNode.zPosition = 10
-        addChild(lineNode)
-    }
-
-    private func showJoystick(_ show: Bool) {
-        guard joystickVisible != show else { return }
-        joystickVisible = show
-        let targetAlpha: CGFloat = show ? 1.0 : 0.0
-        joystickBase.run(SKAction.fadeAlpha(to: targetAlpha * 1.0, duration: 0.15))
-        joystickThumb.run(SKAction.fadeAlpha(to: targetAlpha * 1.0, duration: 0.15))
-    }
-
-    private func updateJoystickThumb(for touch: UITouch) {
-        let location = touch.location(in: self)
-        let dx = location.x - joystickOrigin.x
-        let dy = location.y - joystickOrigin.y
-        let vector = CGVector(dx: dx, dy: dy)
-        let maxRadius: CGFloat = 40
-        let length = CGFloat(hypot(vector.dx, vector.dy))
-        let clampedLength = min(length, maxRadius)
-        let nx = vector.dx / max(1, length)
-        let ny = vector.dy / max(1, length)
-        let thumbPos = CGPoint(x: joystickOrigin.x + nx * clampedLength, y: joystickOrigin.y + ny * clampedLength)
-        joystickThumb.position = thumbPos
-    }
-
-    private func spawnEnemy() {
-        // Spawn at a random edge
-        let margin: CGFloat = 30
-        let side = Int.random(in: 0..<4) // 0: left, 1: right, 2: bottom, 3: top
-        var pos = CGPoint.zero
-        switch side {
-        case 0: pos = CGPoint(x: -margin, y: CGFloat.random(in: 0...size.height))
-        case 1: pos = CGPoint(x: size.width + margin, y: CGFloat.random(in: 0...size.height))
-        case 2: pos = CGPoint(x: CGFloat.random(in: 0...size.width), y: -margin)
-        default: pos = CGPoint(x: CGFloat.random(in: 0...size.width), y: size.height + margin)
-        }
-
-        // 0=slime, 1=cultist, 2=bug tank, 3=dasher, 4=bat (weighted spawn)
-        let roll = Int.random(in: 0..<12)
-        let etype: Int
-        let tex: SKTexture
-        let hp: Int
-        if roll < 4 {
-            etype = 0; tex = PixelAssets.slimeTexture(); hp = 3
-        } else if roll < 7 {
-            etype = 1; tex = PixelAssets.cultistTexture(); hp = 3
-        } else if roll < 9 {
-            etype = 2; tex = PixelAssets.bugTankTexture(); hp = 6
-        } else if roll < 11 {
-            etype = 3; tex = PixelAssets.dasherTexture(); hp = 2
-        } else {
-            etype = 4; tex = PixelAssets.batTexture(); hp = 1
-        }
-
-        let node = SKSpriteNode(texture: tex)
-        node.setScale(3.0)
-        node.name = enemyCategoryName
-        node.position = pos
-        node.zPosition = 5
-        node.userData = [enemyTypeKey: etype, enemyHPKey: hp]
-
-        // Physics body — prevents overlap with player and other enemies
-        let enemyRadius: CGFloat = 12
-        node.physicsBody = SKPhysicsBody(circleOfRadius: enemyRadius)
-        node.physicsBody?.isDynamic = true
-        node.physicsBody?.affectedByGravity = false
-        node.physicsBody?.allowsRotation = false
-        node.physicsBody?.restitution = 0.2
-        node.physicsBody?.friction = 0.3
-        node.physicsBody?.categoryBitMask = enemyCategory
-        node.physicsBody?.collisionBitMask = playerCategory | enemyCategory
-        node.physicsBody?.contactTestBitMask = playerCategory
-
-        addChild(node)
-    }
-
-    private func moveEnemies(dt: TimeInterval) {
-        enumerateChildNodes(withName: enemyCategoryName) { node, _ in
-            guard let enemy = node as? SKSpriteNode else { return }
-            let toPlayer = CGVector(dx: self.player.position.x - enemy.position.x, dy: self.player.position.y - enemy.position.y)
-            let dist = max(1, hypot(toPlayer.dx, toPlayer.dy))
-            let nx = toPlayer.dx / dist
-            let ny = toPlayer.dy / dist
-            let etype = (enemy.userData?[self.enemyTypeKey] as? Int) ?? 0
-            if etype == 1 {
-                // Ranged (cultist): stop at range, face player, and fire
-                if dist > self.enemyRange * 0.9 {
-                    enemy.physicsBody?.velocity = CGVector(dx: nx * self.enemySpeed, dy: ny * self.enemySpeed)
-                } else {
-                    enemy.physicsBody?.velocity = .zero
-                }
-                let cd = self.enemyFireCooldowns[enemy] ?? 0
-                if cd <= 0, dist <= self.enemyRange {
-                    self.fireEnemyBolt(from: enemy.position, toward: self.player.position)
-                    self.enemyFireCooldowns[enemy] = 1.2
-                } else {
-                    self.enemyFireCooldowns[enemy] = max(0, cd - dt)
-                }
-            } else {
-                // Chasers: slime(80), bug(48), dasher(130), bat(100)
-                let speed: CGFloat
-                switch etype {
-                case 2: speed = self.enemySpeed * 0.6   // Bug tank: slow
-                case 3: speed = self.enemySpeed * 1.6   // Dasher: fast
-                case 4: speed = self.enemySpeed * 1.25  // Bat: nimble
-                default: speed = self.enemySpeed
-                }
-                enemy.physicsBody?.velocity = CGVector(dx: nx * speed, dy: ny * speed)
-            }
-        }
-    }
-
-    private func nearestEnemyPosition() -> CGPoint? {
-        var nearest: CGPoint? = nil
-        var bestDist: CGFloat = .greatestFiniteMagnitude
-        enumerateChildNodes(withName: enemyCategoryName) { node, _ in
-            let dx = node.position.x - self.player.position.x
-            let dy = node.position.y - self.player.position.y
-            let d2 = dx*dx + dy*dy
-            if d2 < bestDist {
-                bestDist = d2
-                nearest = node.position
-            }
-        }
-        return nearest
-    }
-
-    private func handleAutoFire(_ dt: TimeInterval) {
-        fireCooldown -= dt
-        let attackRate = runState?.player.attackSpeed ?? 1.0 // attacks per second
-        let interval = max(0.05, 1.0 / attackRate)
-
-        // Only fire when the player is standing still (no joystick input)
-        let isStandingStill = (abs(velocity.dx) < 0.001 && abs(velocity.dy) < 0.001)
-        if !isStandingStill { return }
-
-        if fireCooldown <= 0 {
-            guard let targetPos = nearestEnemyPosition() else { return }
-            let count = max(1, runState?.player.projectileCount ?? 1)
-            fireProjectiles(toward: targetPos, count: count)
-            fireCooldown = interval
-        }
-    }
-
-    private func fireProjectiles(toward target: CGPoint, count: Int) {
-        let from = player.position
-        let baseAngle = atan2(target.y - from.y, target.x - from.x)
-        let spread: CGFloat = count > 1 ? .pi / 24 : 0 // ~7.5 degrees total spread
-        let startAngle = baseAngle - spread * CGFloat(count - 1) / 2
-        for i in 0..<count {
-            let angle = startAngle + spread * CGFloat(i)
-            let dir = CGVector(dx: cos(angle), dy: sin(angle))
-            let node = SKSpriteNode(texture: PixelAssets.arrowTexture())
-            node.setScale(3.0)
-            node.name = projectileCategoryName
-            node.position = from
-            node.zPosition = 6
-            node.zRotation = angle
-            node.userData = [
-                "vx": dir.dx * projectileSpeed,
-                "vy": dir.dy * projectileSpeed,
-                "ttl": projectileLifetime,
-                "pierce": runState?.player.pierce ?? 0,
-                "dmg": 1
-            ]
-            addChild(node)
-        }
-    }
-
-    private func moveProjectiles(dt: TimeInterval) {
-        enumerateChildNodes(withName: projectileCategoryName) { node, _ in
-            guard let data = node.userData else { return }
-            let vx = data["vx"] as? CGFloat ?? 0
-            let vy = data["vy"] as? CGFloat ?? 0
-            var ttl = data["ttl"] as? TimeInterval ?? 0
-            node.position.x += vx * CGFloat(dt)
-            node.position.y += vy * CGFloat(dt)
-            ttl -= dt
-            if ttl <= 0 {
-                node.removeFromParent()
-            } else {
-                data["ttl"] = ttl
-            }
-        }
-    }
-    
-    private func moveEnemyBolts(dt: TimeInterval) {
-        enumerateChildNodes(withName: "enemy_bolt") { node, _ in
-            guard let data = node.userData else { return }
-            let vx = data["vx"] as? CGFloat ?? 0
-            let vy = data["vy"] as? CGFloat ?? 0
-            var ttl = data["ttl"] as? TimeInterval ?? 0
-            node.position.x += vx * CGFloat(dt)
-            node.position.y += vy * CGFloat(dt)
-            ttl -= dt
-            if ttl <= 0 { node.removeFromParent() } else { data["ttl"] = ttl }
-        }
-    }
-
-    private func uniqueNodes(_ nodes: [SKNode]) -> [SKNode] {
-        var seen = Set<ObjectIdentifier>()
-        var result: [SKNode] = []
-        for node in nodes {
-            let id = ObjectIdentifier(node)
-            if !seen.contains(id) {
-                seen.insert(id)
-                result.append(node)
-            }
-        }
-        return result
-    }
-
-    private func handleProjectileCollisions() {
-        var enemiesToRemove: [SKNode] = []
-        var projectilesToRemove: [SKNode] = []
-
-        enumerateChildNodes(withName: projectileCategoryName) { [unowned self] pNode, _ in
-            guard let data = pNode.userData else { return }
-            var pierceRemaining = data["pierce"] as? Int ?? (self.runState?.player.pierce ?? 0)
-            var shouldRemoveProjectile = false
-
-            self.enumerateChildNodes(withName: self.enemyCategoryName) { eNode, stop in
-                let dx = pNode.position.x - eNode.position.x
-                let dy = pNode.position.y - eNode.position.y
-                let dist2 = dx*dx + dy*dy
-                if dist2 < 16*16 { // hit radius ~16
-                    let baseDamage = (data["dmg"] as? Int) ?? 1
-                    let isCrit = Double.random(in: 0...1) < (self.runState?.player.critChance ?? 0)
-                    let critMultiplier = 2.0
-                    let appliedDamage = isCrit ? Int(Double(baseDamage) * critMultiplier) : baseDamage
-
-                    // VFX for hits (extra spark on crit)
-                    self.hitVFX(at: eNode.position)
-                    if isCrit { self.hitVFX(at: eNode.position) }
-
-                    // Decrement enemy HP stored in userData
-                    var ehp = (eNode.userData?[self.enemyHPKey] as? Int) ?? 1
-                    ehp = max(0, ehp - appliedDamage)
-                    eNode.userData?[self.enemyHPKey] = ehp
-
-                    if ehp <= 0 {
-                        enemiesToRemove.append(eNode)
-                    }
-
-                    if pierceRemaining > 0 {
-                        pierceRemaining -= 1
-                        data["pierce"] = pierceRemaining
-                    } else {
-                        projectilesToRemove.append(pNode)
-                        shouldRemoveProjectile = true
-                        stop.pointee = true
-                    }
-                }
-            }
-
-            if shouldRemoveProjectile {
-                // Projectile will be removed after we finish enumerating
-            }
-        }
-
-        let uniqueEnemies = uniqueNodes(enemiesToRemove)
-        let uniqueProjectiles = uniqueNodes(projectilesToRemove)
-
-        // Cleanup per-enemy cooldown entries for removed enemies
-        for enemy in uniqueEnemies {
-            self.enemyFireCooldowns[enemy] = nil
-        }
-
-        // Remove nodes
-        for node in uniqueProjectiles { node.removeFromParent() }
-        for node in uniqueEnemies { node.removeFromParent() }
-
-        // Grant XP for each enemy killed
-        if !uniqueEnemies.isEmpty {
-            let xpPerKill = 12
-            runState?.levelSystem.grantXP(xpPerKill * uniqueEnemies.count)
-        }
-    }
-
-    // MARK: - SKPhysicsContactDelegate (player–enemy damage, physics handles overlap)
     func didBegin(_ contact: SKPhysicsContact) {
-        guard damageCooldown == 0 else { return }
         let maskA = contact.bodyA.categoryBitMask
         let maskB = contact.bodyB.categoryBitMask
-        guard (maskA & playerCategory != 0 && maskB & enemyCategory != 0) ||
-              (maskB & playerCategory != 0 && maskA & enemyCategory != 0) else { return }
-        if let run = runState {
-            run.player.currentHealth = max(0, run.player.currentHealth - contactDamage)
-            damageCooldown = damageIFrame
-            let flash = SKAction.sequence([
-                .fadeAlpha(to: 0.2, duration: 0.05),
-                .fadeAlpha(to: 1.0, duration: 0.15)
-            ])
-            player.run(flash)
-            if run.player.currentHealth == 0 {
-                isPaused = true
-                run.isPaused = true
-                run.isGameOver = true
-            }
-        }
-    }
+        guard (maskA & GameConstants.playerCategory != 0 && maskB & GameConstants.enemyCategory != 0) ||
+              (maskB & GameConstants.playerCategory != 0 && maskA & GameConstants.enemyCategory != 0)
+        else { return }
 
-    
-    private func checkEnemyBoltHitPlayer() {
-        var toRemove: [SKNode] = []
-        enumerateChildNodes(withName: "enemy_bolt") { bolt, _ in
-            let dx = bolt.position.x - self.player.position.x
-            let dy = bolt.position.y - self.player.position.y
-            let dist2 = dx*dx + dy*dy
-            if dist2 < 16*16 { // hit radius
-                toRemove.append(bolt)
-                // Reuse player damage path (respects i-frames)
-                if self.damageCooldown == 0, let run = self.runState {
-                    run.player.currentHealth = max(0, run.player.currentHealth - 10)
-                    self.damageCooldown = self.damageIFrame
-                    let flash = SKAction.sequence([
-                        .fadeAlpha(to: 0.2, duration: 0.05),
-                        .fadeAlpha(to: 1.0, duration: 0.15)
-                    ])
-                    self.player.run(flash)
-                    if run.player.currentHealth == 0 {
-                        self.isPaused = true
-                        run.isPaused = true
-                        run.isGameOver = true
-                    }
-                }
-            }
-        }
-        for n in toRemove { n.removeFromParent() }
-    }
-
-    private func hitVFX(at point: CGPoint) {
-        let frames = PixelAssets.hitSparkTextures()
-        guard let first = frames.first else { return }
-        let spr = SKSpriteNode(texture: first)
-        spr.zPosition = 20
-        spr.position = point
-        spr.setScale(3.0)
-        addChild(spr)
-        let anim = SKAction.animate(with: frames, timePerFrame: 0.05)
-        spr.run(.sequence([anim, .removeFromParent()]))
-    }
-    
-    private func fireEnemyBolt(from: CGPoint, toward: CGPoint) {
-        let angle = atan2(toward.y - from.y, toward.x - from.x)
-        let dir = CGVector(dx: cos(angle), dy: sin(angle))
-        let bolt = SKSpriteNode(texture: PixelAssets.boltTexture())
-        bolt.setScale(3.0)
-        bolt.name = "enemy_bolt"
-        bolt.position = from
-        bolt.zPosition = 6
-        bolt.zRotation = angle
-        bolt.userData = [
-            "vx": dir.dx * enemyBoltSpeed,
-            "vy": dir.dy * enemyBoltSpeed,
-            "ttl": 3.0
-        ]
-        addChild(bolt)
+        applyPlayerDamage(GameConstants.contactDamage)
     }
 }
-
