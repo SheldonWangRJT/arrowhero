@@ -15,6 +15,18 @@ final class GameScene: SKScene {
     private var velocity = CGVector(dx: 0, dy: 0)
     private var lastUpdate: TimeInterval = 0
 
+    // Enemy spawning properties
+    private var spawnTimer: TimeInterval = 0
+    private var spawnInterval: TimeInterval = 2.0
+    private let enemySpeed: CGFloat = 80
+    private let enemyCategoryName = "enemy"
+
+    // Projectile properties
+    private var fireCooldown: TimeInterval = 0
+    private let projectileSpeed: CGFloat = 360
+    private let projectileLifetime: TimeInterval = 2.0
+    private let projectileCategoryName = "projectile"
+
     // Simple joystick tracking
     private var touchIdentifier: UITouch?
     private var joystickOrigin: CGPoint = .zero
@@ -66,6 +78,23 @@ final class GameScene: SKScene {
 
         // Auto-aim placeholder (draw a line or similar)
         drawAutoAim()
+
+        // Spawner
+        spawnTimer += dt
+        if spawnTimer >= spawnInterval {
+            spawnTimer = 0
+            spawnEnemy()
+        }
+
+        // Move enemies toward player
+        moveEnemies(dt: dt)
+
+        // Auto-fire
+        handleAutoFire(dt: dt)
+
+        // Move projectiles and handle collisions
+        moveProjectiles(dt: dt)
+        handleProjectileCollisions()
     }
 
     // MARK: - Touches (simple joystick on left half)
@@ -154,5 +183,118 @@ final class GameScene: SKScene {
         let ny = vector.dy / max(1, length)
         let thumbPos = CGPoint(x: joystickOrigin.x + nx * clampedLength, y: joystickOrigin.y + ny * clampedLength)
         joystickThumb.position = thumbPos
+    }
+
+    private func spawnEnemy() {
+        // Spawn at a random edge
+        let margin: CGFloat = 30
+        let side = Int.random(in: 0..<4) // 0: left, 1: right, 2: bottom, 3: top
+        var pos = CGPoint.zero
+        switch side {
+        case 0: pos = CGPoint(x: -margin, y: CGFloat.random(in: 0...size.height))
+        case 1: pos = CGPoint(x: size.width + margin, y: CGFloat.random(in: 0...size.height))
+        case 2: pos = CGPoint(x: CGFloat.random(in: 0...size.width), y: -margin)
+        default: pos = CGPoint(x: CGFloat.random(in: 0...size.width), y: size.height + margin)
+        }
+
+        let enemySize = CGSize(width: 20, height: 20)
+        let node = SKShapeNode(rectOf: enemySize, cornerRadius: 4)
+        node.name = enemyCategoryName
+        node.position = pos
+        node.fillColor = .red
+        node.strokeColor = .clear
+        node.zPosition = 5
+        addChild(node)
+    }
+
+    private func moveEnemies(dt: TimeInterval) {
+        enumerateChildNodes(withName: enemyCategoryName) { node, _ in
+            guard let enemy = node as? SKShapeNode else { return }
+            let toPlayer = CGVector(dx: self.player.position.x - enemy.position.x, dy: self.player.position.y - enemy.position.y)
+            let len = max(1, hypot(toPlayer.dx, toPlayer.dy))
+            let nx = toPlayer.dx / len
+            let ny = toPlayer.dy / len
+            enemy.position.x += nx * self.enemySpeed * CGFloat(dt)
+            enemy.position.y += ny * self.enemySpeed * CGFloat(dt)
+        }
+    }
+
+    private func nearestEnemyPosition() -> CGPoint? {
+        var nearest: CGPoint? = nil
+        var bestDist: CGFloat = .greatestFiniteMagnitude
+        enumerateChildNodes(withName: enemyCategoryName) { node, _ in
+            let dx = node.position.x - self.player.position.x
+            let dy = node.position.y - self.player.position.y
+            let d2 = dx*dx + dy*dy
+            if d2 < bestDist {
+                bestDist = d2
+                nearest = node.position
+            }
+        }
+        return nearest
+    }
+
+    private func handleAutoFire(dt: TimeInterval) {
+        fireCooldown -= dt
+        let attackRate = runState?.player.attackSpeed ?? 1.0 // attacks per second
+        let interval = max(0.05, 1.0 / attackRate)
+        if fireCooldown <= 0 {
+            guard let targetPos = nearestEnemyPosition() else { return }
+            let count = max(1, runState?.player.projectileCount ?? 1)
+            fireProjectiles(toward: targetPos, count: count)
+            fireCooldown = interval
+        }
+    }
+
+    private func fireProjectiles(toward target: CGPoint, count: Int) {
+        let from = player.position
+        let baseAngle = atan2(target.y - from.y, target.x - from.x)
+        let spread: CGFloat = count > 1 ? .pi / 24 : 0 // ~7.5 degrees total spread
+        let startAngle = baseAngle - spread * CGFloat(count - 1) / 2
+        for i in 0..<count {
+            let angle = startAngle + spread * CGFloat(i)
+            let dir = CGVector(dx: cos(angle), dy: sin(angle))
+            let node = SKShapeNode(circleOfRadius: 4)
+            node.name = projectileCategoryName
+            node.position = from
+            node.fillColor = .cyan
+            node.strokeColor = .clear
+            node.zPosition = 6
+            node.userData = ["vx": dir.dx * projectileSpeed, "vy": dir.dy * projectileSpeed, "ttl": projectileLifetime]
+            addChild(node)
+        }
+    }
+
+    private func moveProjectiles(dt: TimeInterval) {
+        enumerateChildNodes(withName: projectileCategoryName) { node, _ in
+            guard let proj = node as? SKShapeNode, let data = proj.userData else { return }
+            let vx = data["vx"] as? CGFloat ?? 0
+            let vy = data["vy"] as? CGFloat ?? 0
+            var ttl = data["ttl"] as? TimeInterval ?? 0
+            proj.position.x += vx * CGFloat(dt)
+            proj.position.y += vy * CGFloat(dt)
+            ttl -= dt
+            if ttl <= 0 {
+                proj.removeFromParent()
+            } else {
+                data["ttl"] = ttl
+            }
+        }
+    }
+
+    private func handleProjectileCollisions() {
+        var toRemove: [SKNode] = []
+        enumerateChildNodes(withName: projectileCategoryName) { [unowned self] pNode, _ in
+            enumerateChildNodes(withName: self.enemyCategoryName) { eNode, _ in
+                let dx = pNode.position.x - eNode.position.x
+                let dy = pNode.position.y - eNode.position.y
+                let dist2 = dx*dx + dy*dy
+                if dist2 < 16*16 { // hit radius ~16
+                    toRemove.append(pNode)
+                    toRemove.append(eNode)
+                }
+            }
+        }
+        for node in toRemove { node.removeFromParent() }
     }
 }
