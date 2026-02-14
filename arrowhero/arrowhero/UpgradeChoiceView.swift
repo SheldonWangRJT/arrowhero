@@ -12,13 +12,14 @@ struct UpgradeChoiceView: View {
                         if presented == false {
                             // Ensure choices are cleared if dismissed programmatically
                             run.levelSystem.pendingChoices = []
+                            // Resume gameplay after upgrade selection/dismissal
+                            run.isPaused = false
+                        } else {
+                            // Pause gameplay while choices are visible
+                            run.isPaused = true
                         }
                     }
-                ),
-                onDismiss: {
-                    // Resume gameplay after upgrade selection/dismissal
-                    run.isPaused = false
-                }
+                )
             ) {
                 EmptyView()
                     .interactiveDismissDisabled(true)

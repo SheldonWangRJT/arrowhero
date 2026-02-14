@@ -5,7 +5,7 @@ import Combine
 final class GameScene: SKScene {
     weak var runState: GameRunState?
 
-    private let player = SKShapeNode(circleOfRadius: 16)
+    private let player = SKNode()
     private var velocity = CGVector(dx: 0, dy: 0)
     private var lastUpdate: TimeInterval = 0
 
@@ -43,9 +43,17 @@ final class GameScene: SKScene {
     override func didMove(to view: SKView) {
         backgroundColor = .black
 
-        player.fillColor = .white
-        player.strokeColor = .clear
         player.position = CGPoint(x: size.width/2, y: size.height/2)
+
+        // Background ground tiling
+        setupGround()
+
+        // Player sprite
+        let playerSprite = SKSpriteNode(texture: PixelAssets.playerTexture())
+        playerSprite.setScale(3.0)
+        playerSprite.zPosition = 10
+        player.addChild(playerSprite)
+
         addChild(player)
 
         // Setup HUD bars that follow the player
@@ -90,6 +98,27 @@ final class GameScene: SKScene {
         addChild(joystickThumb)
 
         self.isPaused = runState?.isPaused ?? false
+    }
+
+    private func setupGround() {
+        let tileTex = PixelAssets.groundTexture()
+        let tileSize = CGSize(width: tileTex.size().width * 3.0, height: tileTex.size().height * 3.0)
+        let cols = Int(ceil(size.width / tileSize.width)) + 2
+        let rows = Int(ceil(size.height / tileSize.height)) + 2
+        let originX = -tileSize.width
+        let originY = -tileSize.height
+        let groundLayer = SKNode()
+        groundLayer.zPosition = -10
+        for r in 0..<rows {
+            for c in 0..<cols {
+                let spr = SKSpriteNode(texture: tileTex)
+                spr.setScale(3.0)
+                spr.anchorPoint = CGPoint(x: 0, y: 0)
+                spr.position = CGPoint(x: originX + CGFloat(c) * tileSize.width, y: originY + CGFloat(r) * tileSize.height)
+                groundLayer.addChild(spr)
+            }
+        }
+        addChild(groundLayer)
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -256,19 +285,25 @@ final class GameScene: SKScene {
         default: pos = CGPoint(x: CGFloat.random(in: 0...size.width), y: size.height + margin)
         }
 
-        let enemySize = CGSize(width: 20, height: 20)
-        let node = SKShapeNode(rectOf: enemySize, cornerRadius: 4)
+        let node = SKSpriteNode(texture: PixelAssets.slimeTexture())
+        node.setScale(3.0)
         node.name = enemyCategoryName
         node.position = pos
-        node.fillColor = .red
-        node.strokeColor = .clear
         node.zPosition = 5
         addChild(node)
     }
 
     private func moveEnemies(dt: TimeInterval) {
         enumerateChildNodes(withName: enemyCategoryName) { node, _ in
-            guard let enemy = node as? SKShapeNode else { return }
+            guard let enemy = node as? SKShapeNode else {
+                let toPlayer = CGVector(dx: self.player.position.x - node.position.x, dy: self.player.position.y - node.position.y)
+                let len = max(1, hypot(toPlayer.dx, toPlayer.dy))
+                let nx = toPlayer.dx / len
+                let ny = toPlayer.dy / len
+                node.position.x += nx * self.enemySpeed * CGFloat(dt)
+                node.position.y += ny * self.enemySpeed * CGFloat(dt)
+                return
+            }
             let toPlayer = CGVector(dx: self.player.position.x - enemy.position.x, dy: self.player.position.y - enemy.position.y)
             let len = max(1, hypot(toPlayer.dx, toPlayer.dy))
             let nx = toPlayer.dx / len
@@ -318,28 +353,33 @@ final class GameScene: SKScene {
         for i in 0..<count {
             let angle = startAngle + spread * CGFloat(i)
             let dir = CGVector(dx: cos(angle), dy: sin(angle))
-            let node = SKShapeNode(circleOfRadius: 4)
+            let node = SKSpriteNode(texture: PixelAssets.arrowTexture())
+            node.setScale(3.0)
             node.name = projectileCategoryName
             node.position = from
-            node.fillColor = .cyan
-            node.strokeColor = .clear
             node.zPosition = 6
-            node.userData = ["vx": dir.dx * projectileSpeed, "vy": dir.dy * projectileSpeed, "ttl": projectileLifetime, "pierce": runState?.player.pierce ?? 0]
+            node.zRotation = angle
+            node.userData = [
+                "vx": dir.dx * projectileSpeed,
+                "vy": dir.dy * projectileSpeed,
+                "ttl": projectileLifetime,
+                "pierce": runState?.player.pierce ?? 0
+            ]
             addChild(node)
         }
     }
 
     private func moveProjectiles(dt: TimeInterval) {
         enumerateChildNodes(withName: projectileCategoryName) { node, _ in
-            guard let proj = node as? SKShapeNode, let data = proj.userData else { return }
+            guard let data = node.userData else { return }
             let vx = data["vx"] as? CGFloat ?? 0
             let vy = data["vy"] as? CGFloat ?? 0
             var ttl = data["ttl"] as? TimeInterval ?? 0
-            proj.position.x += vx * CGFloat(dt)
-            proj.position.y += vy * CGFloat(dt)
+            node.position.x += vx * CGFloat(dt)
+            node.position.y += vy * CGFloat(dt)
             ttl -= dt
             if ttl <= 0 {
-                proj.removeFromParent()
+                node.removeFromParent()
             } else {
                 data["ttl"] = ttl
             }
@@ -364,7 +404,7 @@ final class GameScene: SKScene {
         var projectilesToRemove: [SKNode] = []
 
         enumerateChildNodes(withName: projectileCategoryName) { [unowned self] pNode, _ in
-            guard let proj = pNode as? SKShapeNode, let data = proj.userData else { return }
+            guard let data = pNode.userData else { return }
             var pierceRemaining = data["pierce"] as? Int ?? (self.runState?.player.pierce ?? 0)
             var shouldRemoveProjectile = false
 
@@ -437,20 +477,15 @@ final class GameScene: SKScene {
     }
 
     private func hitVFX(at point: CGPoint) {
-        let dot = SKShapeNode(circleOfRadius: 6)
-        dot.position = point
-        dot.fillColor = .yellow
-        dot.strokeColor = .clear
-        dot.zPosition = 20
-        addChild(dot)
-        let action = SKAction.sequence([
-            .group([
-                .scale(to: 1.8, duration: 0.15),
-                .fadeOut(withDuration: 0.15)
-            ]),
-            .removeFromParent()
-        ])
-        dot.run(action)
+        let frames = PixelAssets.hitSparkTextures()
+        guard let first = frames.first else { return }
+        let spr = SKSpriteNode(texture: first)
+        spr.zPosition = 20
+        spr.position = point
+        spr.setScale(3.0)
+        addChild(spr)
+        let anim = SKAction.animate(with: frames, timePerFrame: 0.05)
+        spr.run(.sequence([anim, .removeFromParent()]))
     }
 }
 

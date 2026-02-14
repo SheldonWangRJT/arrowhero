@@ -218,7 +218,3 @@ struct Economy { /* prices, rewards */ }
 final class RunState: ObservableObject { /* xp, level, choices, apply upgrade */ }
 final class Spawner { /* time-based spawn budget */ }
 
-
-
-
-
