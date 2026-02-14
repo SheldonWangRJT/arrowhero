@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct UpgradeChoiceView: View {
-    @EnvironmentObject var run: RunState
+    @EnvironmentObject var run: GameRunState
 
     var body: some View {
         Color.clear
@@ -34,7 +34,7 @@ struct UpgradeChoiceView: View {
 }
 
 #Preview {
-    let run = RunState()
+    let run = GameRunState()
     run.levelSystem.pendingChoices = defaultUpgrades().shuffled().prefix(3).map { $0 }
     return UpgradeChoiceView().environmentObject(run)
 }

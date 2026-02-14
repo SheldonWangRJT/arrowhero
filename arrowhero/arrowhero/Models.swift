@@ -21,7 +21,7 @@ enum UpgradeID: String, CaseIterable, Hashable {
     case critChance
 }
 
-struct Upgrade: Identifiable, Hashable {
+struct Upgrade: Identifiable {
     var id: UpgradeID
     var name: String
     var description: String
@@ -39,7 +39,7 @@ func defaultUpgrades() -> [Upgrade] {
     ]
 }
 
-final class LevelSystem: ObservableObject {
+final class LevelingSystem: ObservableObject {
     @Published private(set) var level: Int = 1
     @Published private(set) var currentXP: Int = 0
     @Published private(set) var xpToNext: Int = 20
@@ -66,9 +66,9 @@ final class LevelSystem: ObservableObject {
     }
 }
 
-final class RunState: ObservableObject {
+final class GameRunState: ObservableObject {
     @Published var player = PlayerStats()
-    @Published var levelSystem = LevelSystem()
+    @Published var levelSystem = LevelingSystem()
     @Published var isPaused: Bool = false
 
     func chooseUpgrade(_ upgrade: Upgrade) {

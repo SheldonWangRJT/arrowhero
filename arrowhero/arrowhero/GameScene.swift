@@ -1,5 +1,6 @@
 import SpriteKit
 import SwiftUI
+import Combine
 
 // Singleton for run state (paused or running)
 final class RunState: ObservableObject {

@@ -2,7 +2,7 @@
 
 Version: 1.0  
 Owner: Product + Engineering  
-Last updated: {auto-fill on save}
+Last updated: 2026-02-13
 
 ## 1. Vision & Goals
 - Build a fast, satisfying survivor-roguelite mobile game inspired by Arrow Legend/Archero: short sessions, deep build variety, and strong upgrade dopamine.
@@ -107,26 +107,55 @@ Last updated: {auto-fill on save}
 ## 7. Content Roadmap
 
 ### Milestone 0 (Week 0–1): Planning & Foundations
-- Finalize GDD, technical architecture, analytics schema, economy model
+- [x] Finalize GDD
+- [x] Define technical architecture
+- [x] Draft analytics schema
+- [x] Define economy model
 
 ### Milestone 1 (Week 2–4): Core Gameplay MVP
-- Player controller, combat loop, 6 upgrades, 4 enemy types, basic spawner
-- Level-up UI, pause/overlay, basic VFX/SFX
+- [x] Player controller (movement, aim/auto-aim) (movement)
+- [ ] Combat loop (fire rate, damage, collision)
+- [ ] Upgrades (at least 6)
+  - [ ] Damage, Attack Speed, Extra Projectile, Pierce, Crit Chance, Projectile Speed
+- [ ] Enemy archetypes (4)
+  - [ ] Chaser
+  - [ ] Ranged
+  - [ ] Dasher
+  - [ ] Tank
+- [ ] Spawner (time-based spawn budget)
+- [x] Level-up UI (3-card picker + rarity)
+- [x] Pause/overlay
+- [ ] Basic VFX/SFX
 
 ### Milestone 2 (Week 5–6): Systems & Content
-- Expand to 18+ upgrades, 10 enemy types, 1 boss
-- Gear (3 slots), meta-upgrades, run summary screen
+- [ ] Expand upgrades to 18+ total
+- [ ] Add enemies to 10 types total
+- [ ] Implement 1 boss (multi-phase)
+- [ ] Gear system (3 slots: weapon, armor, charm)
+- [ ] Meta-upgrades (tree UI + persistence)
+- [ ] Run summary screen (stats, rewards)
 
 ### Milestone 3 (Week 7–8): Monetization & Polish
-- StoreKit 2 integration, IAP flows, gem sinks
-- Tutorial, FTUE polish, difficulty tuning, performance pass
+- [ ] StoreKit 2 integration (products, purchase, restore)
+- [ ] Gem sinks (reroll, revive, fuse speed-up)
+- [ ] Store UI (pricing clarity, starter bundle)
+- [ ] Tutorial & FTUE polish
+- [ ] Difficulty tuning pass
+- [ ] Performance pass (60fps target on iPhone 11+)
 
 ### Milestone 4 (Week 9–10): Beta & Soft Launch
-- TestFlight, A/B configs, analytics dashboards, crash monitoring
-- ASO assets, App Store page, privacy & age rating
+- [ ] TestFlight build & distribution
+- [ ] A/B configs (local JSON)
+- [ ] Analytics dashboards & crash monitoring
+- [ ] ASO assets (screens, video, icon)
+- [ ] App Store page metadata
+- [ ] Privacy & age rating review
 
 ### Post-Launch (Ongoing)
-- New biome every 4–6 weeks, weekly events, balance patches
+- [ ] New biome every 4–6 weeks
+- [ ] Weekly events
+- [ ] Balance patches
+- [ ] New gear and upgrades cadence
 
 ## 8. Analytics & Telemetry
 
@@ -168,3 +197,4 @@ struct Economy { /* prices, rewards */ }
 // Game Flow
 final class RunState: ObservableObject { /* xp, level, choices, apply upgrade */ }
 final class Spawner { /* time-based spawn budget */ }
+
