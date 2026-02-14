@@ -122,10 +122,11 @@ Last updated: 2026-02-13
   - [ ] Ranged
   - [ ] Dasher
   - [ ] Tank
-- [ ] Spawner (time-based spawn budget)
+- [x] Spawner (time-based spawn budget)
 - [x] Level-up UI (3-card picker + rarity)
 - [x] Pause/overlay
 - [ ] Basic VFX/SFX
+- [x] Auto-fire (stationary) toward nearest enemy
 
 ### Milestone 2 (Week 5–6): Systems & Content
 - [ ] Expand upgrades to 18+ total
@@ -134,6 +135,10 @@ Last updated: 2026-02-13
 - [ ] Gear system (3 slots: weapon, armor, charm)
 - [ ] Meta-upgrades (tree UI + persistence)
 - [ ] Run summary screen (stats, rewards)
+- [ ] Player health & damage (enemy contact damage, run end)
+- [ ] XP orbs on enemy death + magnet collection
+- [ ] Apply upgrade effects in runtime (damage, crit, pierce)
+- [ ] Simple run summary (time survived, enemies defeated)
 
 ### Milestone 3 (Week 7–8): Monetization & Polish
 - [ ] StoreKit 2 integration (products, purchase, restore)
@@ -197,5 +202,6 @@ struct Economy { /* prices, rewards */ }
 // Game Flow
 final class RunState: ObservableObject { /* xp, level, choices, apply upgrade */ }
 final class Spawner { /* time-based spawn budget */ }
+
 
 

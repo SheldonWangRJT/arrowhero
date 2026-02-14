@@ -238,6 +238,11 @@ final class GameScene: SKScene {
         fireCooldown -= dt
         let attackRate = runState?.player.attackSpeed ?? 1.0 // attacks per second
         let interval = max(0.05, 1.0 / attackRate)
+
+        // Only fire when the player is standing still (no joystick input)
+        let isStandingStill = (abs(velocity.dx) < 0.001 && abs(velocity.dy) < 0.001)
+        if !isStandingStill { return }
+
         if fireCooldown <= 0 {
             guard let targetPos = nearestEnemyPosition() else { return }
             let count = max(1, runState?.player.projectileCount ?? 1)
@@ -298,3 +303,4 @@ final class GameScene: SKScene {
         for node in toRemove { node.removeFromParent() }
     }
 }
+
