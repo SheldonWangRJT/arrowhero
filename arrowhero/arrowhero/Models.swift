@@ -44,21 +44,39 @@ final class LevelingSystem: ObservableObject {
     @Published private(set) var currentXP: Int = 0
     @Published private(set) var xpToNext: Int = 20
     @Published var pendingChoices: [Upgrade] = []
+    @Published var presentingLevel: Int? = nil
+    private(set) var queuedLevelUps: Int = 0
 
     private let pool = defaultUpgrades()
 
     func grantXP(_ amount: Int) {
         currentXP += amount
+        // Accumulate level-ups
         while currentXP >= xpToNext {
             currentXP -= xpToNext
-            levelUp()
+            level += 1
+            xpToNext = xpRequirement(for: level)
+            queuedLevelUps += 1
+        }
+        // If not currently presenting choices, present one now
+        if pendingChoices.isEmpty, queuedLevelUps > 0 {
+            queuedLevelUps -= 1
+            presentChoices()
         }
     }
 
-    private func levelUp() {
-        level += 1
-        xpToNext = xpRequirement(for: level)
+    private func presentChoices() {
+        presentingLevel = level
         pendingChoices = Array(pool.shuffled().prefix(3))
+    }
+
+    func presentNextIfNeeded() {
+        if pendingChoices.isEmpty, queuedLevelUps > 0 {
+            queuedLevelUps -= 1
+            presentChoices()
+        } else if pendingChoices.isEmpty {
+            presentingLevel = nil
+        }
     }
 
     private func xpRequirement(for level: Int) -> Int {
@@ -70,9 +88,11 @@ final class GameRunState: ObservableObject {
     @Published var player = PlayerStats()
     @Published var levelSystem = LevelingSystem()
     @Published var isPaused: Bool = false
+    @Published var elapsedTime: TimeInterval = 0
 
     func chooseUpgrade(_ upgrade: Upgrade) {
         upgrade.apply(&player)
         levelSystem.pendingChoices = []
+        levelSystem.presentNextIfNeeded()
     }
 }

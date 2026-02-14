@@ -9,6 +9,11 @@ final class GameScene: SKScene {
     private var velocity = CGVector(dx: 0, dy: 0)
     private var lastUpdate: TimeInterval = 0
 
+    // Player damage / i-frames
+    private var damageCooldown: TimeInterval = 0
+    private let damageIFrame: TimeInterval = 1.0
+    private let contactDamage: Int = 10
+
     // Enemy spawning properties
     private var spawnTimer: TimeInterval = 0
     private var spawnInterval: TimeInterval = 2.0
@@ -28,6 +33,13 @@ final class GameScene: SKScene {
     private let joystickThumb = SKShapeNode(circleOfRadius: 18)
     private var joystickVisible: Bool = false
 
+    // HUD elements (follow player)
+    private let hudNode = SKNode()
+    private let hpBg = SKSpriteNode(color: .white.withAlphaComponent(0.2), size: CGSize(width: 40, height: 3))
+    private let hpFill = SKSpriteNode(color: .red, size: CGSize(width: 40, height: 3))
+    private let xpBg = SKSpriteNode(color: .white.withAlphaComponent(0.15), size: CGSize(width: 40, height: 2))
+    private let xpFill = SKSpriteNode(color: .blue, size: CGSize(width: 40, height: 2))
+
     override func didMove(to view: SKView) {
         backgroundColor = .black
 
@@ -35,6 +47,35 @@ final class GameScene: SKScene {
         player.strokeColor = .clear
         player.position = CGPoint(x: size.width/2, y: size.height/2)
         addChild(player)
+
+        // Setup HUD bars that follow the player
+        hudNode.zPosition = 100
+        hudNode.position = CGPoint(x: 0, y: 30)
+        player.addChild(hudNode)
+
+        // Configure anchors so scaling the fill adjusts width from left to right
+        for node in [hpBg, hpFill, xpBg, xpFill] {
+            node.anchorPoint = CGPoint(x: 0, y: 0.5)
+        }
+
+        // Position backgrounds and fills centered above player
+        let hpWidth: CGFloat = 40
+        let xpWidth: CGFloat = 40
+        hpBg.position = CGPoint(x: -hpWidth/2, y: 0)
+        hpFill.position = CGPoint(x: -hpWidth/2, y: 0)
+        xpBg.position = CGPoint(x: -xpWidth/2, y: -5)
+        xpFill.position = CGPoint(x: -xpWidth/2, y: -5)
+
+        hudNode.addChild(hpBg)
+        hudNode.addChild(hpFill)
+        hudNode.addChild(xpBg)
+        hudNode.addChild(xpFill)
+
+        // Initialize to current ratios
+        let hpRatio = CGFloat(max(0, min(1, Double(runState?.player.currentHealth ?? 0) / Double(runState?.player.maxHealth ?? 1))))
+        hpFill.xScale = hpRatio
+        let xpRatio = CGFloat(max(0, min(1, Double(runState?.levelSystem.currentXP ?? 0) / Double(runState?.levelSystem.xpToNext == 0 ? 1 : runState?.levelSystem.xpToNext ?? 1))))
+        xpFill.xScale = xpRatio
 
         joystickBase.strokeColor = .clear
         joystickBase.fillColor = .white.withAlphaComponent(0.12)
@@ -59,6 +100,20 @@ final class GameScene: SKScene {
 
         if let paused = runState?.isPaused { self.isPaused = paused }
         if self.isPaused { return }
+
+        // Update run elapsed time
+        runState?.elapsedTime += dt
+
+        // Decrement i-frame cooldown
+        damageCooldown = max(0, damageCooldown - dt)
+
+        // Spawn scaling over time (reduce interval from 2.0 to 0.4 over ~3 minutes)
+        let time = runState?.elapsedTime ?? 0
+        let minInterval: TimeInterval = 0.4
+        let maxInterval: TimeInterval = 2.0
+        let rampDuration: TimeInterval = 180 // seconds
+        let t = min(1.0, time / rampDuration)
+        spawnInterval = max(minInterval, maxInterval - (maxInterval - minInterval) * t)
 
         // Movement
         let speed = CGFloat(runState?.player.moveSpeed ?? 220)
@@ -85,10 +140,20 @@ final class GameScene: SKScene {
 
         // Auto-fire
         handleAutoFire(dt)
+        
+        // Update HUD bars to reflect current health and XP
+        if let run = runState {
+            let hpRatio = CGFloat(max(0, min(1, Double(run.player.currentHealth) / Double(max(1, run.player.maxHealth)))))
+            hpFill.xScale = hpRatio
+            let xpToNext = max(1, run.levelSystem.xpToNext)
+            let xpRatio = CGFloat(max(0, min(1, Double(run.levelSystem.currentXP) / Double(xpToNext))))
+            xpFill.xScale = xpRatio
+        }
 
         // Move projectiles and handle collisions
         moveProjectiles(dt: dt)
         handleProjectileCollisions()
+        checkPlayerEnemyContact()
     }
 
     // MARK: - Touches (simple joystick on left half)
@@ -308,6 +373,7 @@ final class GameScene: SKScene {
                 let dy = pNode.position.y - eNode.position.y
                 let dist2 = dx*dx + dy*dy
                 if dist2 < 16*16 { // hit radius ~16
+                    self.hitVFX(at: eNode.position)
                     enemiesToRemove.append(eNode)
                     if pierceRemaining > 0 {
                         pierceRemaining -= 1
@@ -337,6 +403,54 @@ final class GameScene: SKScene {
             let xpPerKill = 5
             runState?.levelSystem.grantXP(xpPerKill * uniqueEnemies.count)
         }
+    }
+
+    private func checkPlayerEnemyContact() {
+        guard damageCooldown == 0 else { return }
+        var tookDamage = false
+        enumerateChildNodes(withName: enemyCategoryName) { node, stop in
+            let dx = node.position.x - self.player.position.x
+            let dy = node.position.y - self.player.position.y
+            let dist2 = dx*dx + dy*dy
+            if dist2 < 20*20 { // contact radius ~20
+                tookDamage = true
+                stop.pointee = true
+            }
+        }
+
+        if tookDamage, let run = runState {
+            run.player.currentHealth = max(0, run.player.currentHealth - contactDamage)
+            damageCooldown = damageIFrame
+
+            // Brief flash feedback
+            let flash = SKAction.sequence([
+                .fadeAlpha(to: 0.2, duration: 0.05),
+                .fadeAlpha(to: 1.0, duration: 0.15)
+            ])
+            player.run(flash)
+
+            if run.player.currentHealth == 0 {
+                self.isPaused = true
+                run.isPaused = true
+            }
+        }
+    }
+
+    private func hitVFX(at point: CGPoint) {
+        let dot = SKShapeNode(circleOfRadius: 6)
+        dot.position = point
+        dot.fillColor = .yellow
+        dot.strokeColor = .clear
+        dot.zPosition = 20
+        addChild(dot)
+        let action = SKAction.sequence([
+            .group([
+                .scale(to: 1.8, duration: 0.15),
+                .fadeOut(withDuration: 0.15)
+            ]),
+            .removeFromParent()
+        ])
+        dot.run(action)
     }
 }
 
