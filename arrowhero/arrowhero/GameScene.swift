@@ -2,7 +2,11 @@ import SpriteKit
 import SwiftUI
 import Combine
 
-final class GameScene: SKScene {
+// Physics categories
+private let playerCategory: UInt32 = 0b1
+private let enemyCategory: UInt32 = 0b10
+
+final class GameScene: SKScene, SKPhysicsContactDelegate {
     weak var runState: GameRunState?
 
     private let player = SKNode()
@@ -47,11 +51,25 @@ final class GameScene: SKScene {
 
     override func didMove(to view: SKView) {
         backgroundColor = .black
+        physicsWorld.gravity = .zero
+        physicsWorld.contactDelegate = self
         configureScene()
     }
 
     private func configureScene() {
         player.position = CGPoint(x: size.width/2, y: size.height/2)
+
+        // Physics body — prevents overlap with enemies
+        let playerRadius: CGFloat = 14
+        player.physicsBody = SKPhysicsBody(circleOfRadius: playerRadius)
+        player.physicsBody?.isDynamic = true
+        player.physicsBody?.affectedByGravity = false
+        player.physicsBody?.allowsRotation = false
+        player.physicsBody?.restitution = 0.3
+        player.physicsBody?.friction = 0.2
+        player.physicsBody?.categoryBitMask = playerCategory
+        player.physicsBody?.collisionBitMask = enemyCategory
+        player.physicsBody?.contactTestBitMask = enemyCategory
 
         // Background ground tiling
         setupGround()
@@ -177,13 +195,15 @@ final class GameScene: SKScene {
         let t = min(1.0, time / rampDuration)
         spawnInterval = max(minInterval, maxInterval - (maxInterval - minInterval) * t)
 
-        // Movement
+        // Movement via physics velocity (physics engine prevents overlap)
         let speed = CGFloat(runState?.player.moveSpeed ?? 220)
-        player.position.x += velocity.dx * speed * dt
-        player.position.y += velocity.dy * speed * dt
-
-        // Clamp to scene
+        var targetVel = CGVector(dx: velocity.dx * speed, dy: velocity.dy * speed)
         let inset: CGFloat = 20
+        if player.position.x <= inset && targetVel.dx < 0 { targetVel.dx = 0 }
+        if player.position.x >= size.width - inset && targetVel.dx > 0 { targetVel.dx = 0 }
+        if player.position.y <= inset && targetVel.dy < 0 { targetVel.dy = 0 }
+        if player.position.y >= size.height - inset && targetVel.dy > 0 { targetVel.dy = 0 }
+        player.physicsBody?.velocity = targetVel
         player.position.x = max(inset, min(size.width - inset, player.position.x))
         player.position.y = max(inset, min(size.height - inset, player.position.y))
 
@@ -216,7 +236,6 @@ final class GameScene: SKScene {
         moveProjectiles(dt: dt)
         moveEnemyBolts(dt: dt)
         handleProjectileCollisions()
-        checkPlayerEnemyContact()
         checkEnemyBoltHitPlayer()
     }
 
@@ -323,6 +342,19 @@ final class GameScene: SKScene {
         node.position = pos
         node.zPosition = 5
         node.userData = [enemyTypeKey: isRanged ? 1 : 0, enemyHPKey: 3]
+
+        // Physics body — prevents overlap with player and other enemies
+        let enemyRadius: CGFloat = 12
+        node.physicsBody = SKPhysicsBody(circleOfRadius: enemyRadius)
+        node.physicsBody?.isDynamic = true
+        node.physicsBody?.affectedByGravity = false
+        node.physicsBody?.allowsRotation = false
+        node.physicsBody?.restitution = 0.2
+        node.physicsBody?.friction = 0.3
+        node.physicsBody?.categoryBitMask = enemyCategory
+        node.physicsBody?.collisionBitMask = playerCategory | enemyCategory
+        node.physicsBody?.contactTestBitMask = playerCategory
+
         addChild(node)
     }
 
@@ -337,8 +369,9 @@ final class GameScene: SKScene {
             if etype == 1 {
                 // Ranged: stop at range, face player, and fire
                 if dist > self.enemyRange * 0.9 {
-                    enemy.position.x += nx * self.enemySpeed * CGFloat(dt)
-                    enemy.position.y += ny * self.enemySpeed * CGFloat(dt)
+                    enemy.physicsBody?.velocity = CGVector(dx: nx * self.enemySpeed, dy: ny * self.enemySpeed)
+                } else {
+                    enemy.physicsBody?.velocity = .zero
                 }
                 // Fire at intervals
                 let cd = self.enemyFireCooldowns[enemy] ?? 0
@@ -349,9 +382,8 @@ final class GameScene: SKScene {
                     self.enemyFireCooldowns[enemy] = max(0, cd - dt)
                 }
             } else {
-                // Chaser: move toward player
-                enemy.position.x += nx * self.enemySpeed * CGFloat(dt)
-                enemy.position.y += ny * self.enemySpeed * CGFloat(dt)
+                // Chaser: move toward player (physics handles collision with player/other enemies)
+                enemy.physicsBody?.velocity = CGVector(dx: nx * self.enemySpeed, dy: ny * self.enemySpeed)
             }
         }
     }
@@ -523,37 +555,29 @@ final class GameScene: SKScene {
         }
     }
 
-    private func checkPlayerEnemyContact() {
+    // MARK: - SKPhysicsContactDelegate (player–enemy damage, physics handles overlap)
+    func didBegin(_ contact: SKPhysicsContact) {
         guard damageCooldown == 0 else { return }
-        var tookDamage = false
-        enumerateChildNodes(withName: enemyCategoryName) { node, stop in
-            let dx = node.position.x - self.player.position.x
-            let dy = node.position.y - self.player.position.y
-            let dist2 = dx*dx + dy*dy
-            if dist2 < 20*20 { // contact radius ~20
-                tookDamage = true
-                stop.pointee = true
-            }
-        }
-
-        if tookDamage, let run = runState {
+        let maskA = contact.bodyA.categoryBitMask
+        let maskB = contact.bodyB.categoryBitMask
+        guard (maskA & playerCategory != 0 && maskB & enemyCategory != 0) ||
+              (maskB & playerCategory != 0 && maskA & enemyCategory != 0) else { return }
+        if let run = runState {
             run.player.currentHealth = max(0, run.player.currentHealth - contactDamage)
             damageCooldown = damageIFrame
-
-            // Brief flash feedback
             let flash = SKAction.sequence([
                 .fadeAlpha(to: 0.2, duration: 0.05),
                 .fadeAlpha(to: 1.0, duration: 0.15)
             ])
             player.run(flash)
-
             if run.player.currentHealth == 0 {
-                self.isPaused = true
+                isPaused = true
                 run.isPaused = true
                 run.isGameOver = true
             }
         }
     }
+
     
     private func checkEnemyBoltHitPlayer() {
         var toRemove: [SKNode] = []

@@ -49,8 +49,9 @@ arrowhero/
 
 ## MVP Status (from docs/ROADMAP.md)
 - [x] Player controller, joystick, auto-aim, auto-fire
-- [x] Upgrade system, level-up picker, apply at runtime (damage, attack speed, projectile count, pierce)
+- [x] Upgrade system, level-up picker, apply at runtime (damage, attack speed, projectile count, pierce, crit)
 - [x] Spawner, pause sync, GameScene lifetime
-- [ ] Player damage on contact, run end at 0 HP
-- [ ] HUD: HP bar, XP bar, time survived
-- [ ] Crit handling, spawn scaling
+- [x] Player damage on contact, i-frames, run end at 0 HP
+- [x] HUD: HP bar, XP bar, time survived
+- [x] Crit handling, spawn scaling
+- [x] Restart button, SpriteKit physics (no enemy overlap)

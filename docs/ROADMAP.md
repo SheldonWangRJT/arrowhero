@@ -1,6 +1,6 @@
 # arrowhero — Roadmap
 
-Version: 1.0 · Last updated: 2026-02-14
+Version: 1.1 · Last updated: 2026-02-14
 
 ## Milestone 0 (Week 0–1): Planning & Foundations
 - [x] Finalize GDD
@@ -10,25 +10,30 @@ Version: 1.0 · Last updated: 2026-02-14
 
 ## Milestone 1 (Week 2–4): Core Gameplay MVP
 - [x] Player controller (movement with visible joystick, aim/auto-aim)
-- [ ] Combat loop (fire rate, damage, collision)
-- [ ] Upgrades (at least 6)
+- [x] Combat loop (fire rate, damage, collision)
+- [x] Upgrades (at least 6)
   - [x] Damage, Attack Speed, Extra Projectile, Pierce
-  - [ ] Crit Chance, Projectile Speed
-- [ ] Enemy archetypes (4): Chaser, Ranged, Dasher, Tank
+  - [x] Crit Chance (Sharpshooter)
+  - [ ] Projectile Speed
+- [x] Enemy archetypes (2): Chaser (slime), Ranged (cultist)
+- [ ] Enemy archetypes (4 total): Dasher, Tank
 - [x] Spawner (time-based spawn budget)
 - [x] Level-up UI (3-card picker + rarity)
 - [x] Pause/overlay
-- [ ] Basic VFX/SFX
+- [x] Basic VFX (hit sparks, crit variant)
+- [ ] SFX
 - [x] Auto-fire (stationary) toward nearest enemy
-- [ ] **Wiring & Core Loop**
+- [x] **Wiring & Core Loop**
   - [x] Pass GameRunState into GameScene
   - [x] Pause sync, GameScene lifetime, upgrade overlay
-  - [x] Grant XP on kill, apply upgrades (attack speed, projectile count, pierce)
-  - [ ] Crit (pending)
+  - [x] Grant XP on kill, apply upgrades (attack speed, projectile count, pierce, crit)
+  - [x] Crit handling
   - [x] Collision de-duplication
-  - [ ] Player damage on contact, i-frames, run end at 0 HP
-  - [ ] Minimal HUD: HP bar, XP bar, time survived
-  - [ ] Spawn scaling over time
+  - [x] Player damage on contact, i-frames, run end at 0 HP
+  - [x] Minimal HUD: HP bar, XP bar, time survived (debug + game-over)
+  - [x] Spawn scaling over time (2.0s → 0.4s over 3 min)
+  - [x] Restart button (scene.restart, no freeze)
+  - [x] SpriteKit physics (enemies push apart, no overlap)
 
 ## Milestone 2 (Week 5–6): Systems & Content
 - [ ] Expand upgrades to 18+ total
