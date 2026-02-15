@@ -19,6 +19,7 @@ extension GameScene {
         player.physicsBody = body
 
         let playerSprite = SKSpriteNode(texture: PixelAssets.playerTexture())
+        playerSprite.name = "playerSprite"
         playerSprite.setScale(3.0)
         playerSprite.zPosition = 10
         player.addChild(playerSprite)
@@ -81,6 +82,22 @@ extension GameScene {
         player.physicsBody?.velocity = targetVel
         player.position.x = max(inset, min(size.width - inset, player.position.x))
         player.position.y = max(inset, min(size.height - inset, player.position.y))
+        updatePlayerWalkAnimation()
+    }
+
+    private func updatePlayerWalkAnimation() {
+        guard let sprite = player.childNode(withName: "playerSprite") as? SKSpriteNode else { return }
+        let isMoving = abs(velocity.dx) >= 0.001 || abs(velocity.dy) >= 0.001
+        if isMoving {
+            if sprite.action(forKey: "walk") == nil {
+                let frames = PixelAssets.playerWalkTextures()
+                let animate = SKAction.animate(with: frames, timePerFrame: 0.12)
+                sprite.run(SKAction.repeatForever(animate), withKey: "walk")
+            }
+        } else {
+            sprite.removeAction(forKey: "walk")
+            sprite.texture = PixelAssets.playerTexture()
+        }
     }
 
     func updateVelocity(for touch: UITouch) {

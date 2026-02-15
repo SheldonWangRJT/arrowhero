@@ -69,3 +69,4 @@ XP: 12 per kill; 10 XP to level 2, +8 per level. Level-up heal: 25% max HP.
 - [x] Restart button, SpriteKit physics (no enemy overlap)
 - [x] SFX (hit, shot, explosion, xp, level-up, player hit)
 - [x] BGM (Electronic Synth, looping)
+- [x] Hero walk animation (3-frame leg cycle)

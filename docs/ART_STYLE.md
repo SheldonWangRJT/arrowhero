@@ -31,7 +31,7 @@ Version: 1.1 · Owner: Art + Design · Last updated: 2026-02-14
 ## MVP Asset List (Implemented)
 
 ### Hero (PixelArtKit)
-- **Hero 1** — Mech-archer (default), 12×12, blue/cyan. Primary player sprite.
+- **Hero 1** — Mech-archer (default), 12×12, blue/cyan. Primary player sprite. **Walk cycle:** 3 frames (idle, left leg, right leg), loops when moving; idle texture when stationary.
 - **Hero 2** — Armored scout, 12×12, gray/orange. (Variant, not yet selectable.)
 - **Hero 3** — Swift striker, 12×12, yellow/cyan. (Variant, not yet selectable.)
 
@@ -53,7 +53,7 @@ Version: 1.1 · Owner: Art + Design · Last updated: 2026-02-14
 ## Pending / Future
 - **Boss:** large silhouette, 2–3 telegraphs, death burst
 - **XP orbs:** collectible sprites + magnet
-- **Character animations:** idle (4–6), move (6–8), hurt flash
+- **Character animations:** idle (4–6) breathing, hurt flash
 
 ## Production Specs
 - Character: 12–16px @1x, render 2–3x
@@ -64,5 +64,5 @@ Version: 1.1 · Owner: Art + Design · Last updated: 2026-02-14
 
 ## Integration
 - `SKTexture.filteringMode = .nearest`; `node.setScale(3.0)` for hero and enemies.
-- **PixelArtKit.swift**: ASCII grid → SKTexture (legend mapping). Used for hero, all 5 enemies, projectiles, ground tile.
+- **PixelArtKit.swift**: ASCII grid → SKTexture (legend mapping). Hero has `playerTexture()` + `playerWalkTextures()` (3-frame leg cycle). Used for hero, all 5 enemies, projectiles, ground tile.
 - **Sounds/**: SFX as CAF (hit_01, shot_01, explosion, plop_01, key_open_01, hit_02); BGM as MP3 (bgm_electronic).

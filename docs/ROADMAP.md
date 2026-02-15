@@ -22,6 +22,7 @@ Version: 1.3 · Last updated: 2026-02-14
 - [x] Basic VFX (hit sparks, crit variant)
 - [x] SFX (hit, shot, explosion, xp pickup, level-up, player hit)
 - [x] BGM (Electronic Synth — space/electric loop)
+- [x] Hero walk animation (3-frame leg cycle when moving)
 - [x] Auto-fire (stationary) toward nearest enemy
 - [x] **Wiring & Core Loop**
   - [x] Pass GameRunState into GameScene

@@ -151,6 +151,36 @@ struct PixelAssets {
         "..cc....cc..",
     ]
 
+    // Hero 1 walk cycle (3 frames) — leg movement, alternating left/right
+    static let playerWalk1Rows: [String] = [
+        "....cccc....",
+        "...cwwcc....",
+        "..cwwwcc....",
+        "..cwwkcc....",
+        "...cbbbc....",
+        "..cbbbbc....",
+        ".ccbbbbcc...",
+        "..cbbbbbcc..",
+        "..cgggggc...",
+        "cgg.gggggc..",  // left leg extended forward
+        "cgg....gggc.",
+        "cc.......cc.",  // left foot forward
+    ]
+    static let playerWalk2Rows: [String] = [
+        "....cccc....",
+        "...cwwcc....",
+        "..cwwwcc....",
+        "..cwwkcc....",
+        "...cbbbc....",
+        "..cbbbbc....",
+        ".ccbbbbcc...",
+        "..cbbbbbcc..",
+        "..cgggggc...",
+        ".cgggggg.ggc",   // right leg extended forward
+        ".cgggg..ggc.",
+        ".cc.......cc",   // right foot forward
+    ]
+
     // Hero 2 — armored scout 12x12 (gray/orange)
     static let hero2Rows: [String] = [
         "....gggg....",
@@ -343,6 +373,13 @@ struct PixelAssets {
 
     // Factory functions (textures)
     static func playerTexture() -> SKTexture { PixelArt.texture(rows: playerRows, legend: legend) }
+    static func playerWalkTextures() -> [SKTexture] {
+        [
+            PixelArt.texture(rows: playerRows, legend: legend),
+            PixelArt.texture(rows: playerWalk1Rows, legend: legend),
+            PixelArt.texture(rows: playerWalk2Rows, legend: legend),
+        ]
+    }
     static func hero2Texture() -> SKTexture { PixelArt.texture(rows: hero2Rows, legend: legend) }
     static func hero3Texture() -> SKTexture { PixelArt.texture(rows: hero3Rows, legend: legend) }
     static func slimeTexture() -> SKTexture { PixelArt.texture(rows: slimeRows, legend: legend) }
