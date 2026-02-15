@@ -94,6 +94,9 @@ final class GameRunState: ObservableObject {
 
     func chooseUpgrade(_ upgrade: Upgrade) {
         upgrade.apply(&player)
+        // Level-up reward: heal 25% of max HP (min 15)
+        let healAmount = max(15, player.maxHealth / 4)
+        player.currentHealth = min(player.maxHealth, player.currentHealth + healAmount)
         levelSystem.pendingChoices = []
         levelSystem.presentNextIfNeeded()
     }

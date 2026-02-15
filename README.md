@@ -25,12 +25,14 @@ arrowhero/
 ├── arrowhero/arrowhero/           # Source
 │   ├── ArrowSurvivorApp.swift
 │   ├── ContentView.swift
-│   ├── GameScene.swift
-│   ├── Models.swift
-│   ├── UpgradeChoiceView.swift
+│   ├── GameScene.swift + extensions (Player, Enemies, Projectiles, Damage)
+│   ├── Models.swift, UpgradeChoiceView.swift
+│   ├── AudioManager.swift, EnemyType.swift, GameConstants.swift
+│   ├── Sounds/                   # SFX (.caf), BGM (bgm_electronic.mp3)
 │   └── Assets.xcassets
-├── docs/                          # Planning & design
-├── .vscode/                       # Cursor debug config
+├── arrowhero/PixelArtKit.swift   # Pixel art textures (hero, 5 enemies)
+├── docs/                         # Planning & design
+├── .vscode/                      # Cursor debug config
 └── build.sh
 ```
 

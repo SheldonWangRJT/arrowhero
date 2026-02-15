@@ -23,6 +23,7 @@ struct UpgradeChoiceView: View {
                         HStack(spacing: 12) {
                             ForEach(run.levelSystem.pendingChoices.prefix(3), id: \.id) { upgrade in
                                 UpgradeCard(upgrade: upgrade) {
+                                    AudioManager.play(.levelUp)
                                     run.chooseUpgrade(upgrade)
                                 }
                             }

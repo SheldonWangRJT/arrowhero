@@ -1,6 +1,6 @@
 # arrowhero — Roadmap
 
-Version: 1.2 · Last updated: 2026-02-14
+Version: 1.3 · Last updated: 2026-02-14
 
 ## Milestone 0 (Week 0–1): Planning & Foundations
 - [x] Finalize GDD
@@ -20,7 +20,8 @@ Version: 1.2 · Last updated: 2026-02-14
 - [x] Level-up UI (overlay with 3 cards, pixel icons, fixed sizing)
 - [x] Pause/overlay
 - [x] Basic VFX (hit sparks, crit variant)
-- [ ] SFX
+- [x] SFX (hit, shot, explosion, xp pickup, level-up, player hit)
+- [x] BGM (Electronic Synth — space/electric loop)
 - [x] Auto-fire (stationary) toward nearest enemy
 - [x] **Wiring & Core Loop**
   - [x] Pass GameRunState into GameScene

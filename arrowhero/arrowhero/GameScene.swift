@@ -44,6 +44,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = self
         configureScene()
+        AudioManager.playBGM()
     }
 
     private func configureScene() {

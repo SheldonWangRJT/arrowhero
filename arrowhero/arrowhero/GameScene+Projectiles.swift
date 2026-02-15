@@ -42,6 +42,7 @@ extension GameScene {
             ]
             addChild(node)
         }
+        AudioManager.play(.shot, on: self)
     }
 
     func moveProjectiles(dt: TimeInterval) {
@@ -94,6 +95,7 @@ extension GameScene {
                 let appliedDamage = isCrit ? Int(Double(baseDamage) * GameConstants.critMultiplier) : baseDamage
 
                 hitVFX(at: eNode.position)
+                AudioManager.play(.hit, on: self)
                 if isCrit { hitVFX(at: eNode.position) }
 
                 var ehp = (eNode.userData?[enemyHPKey] as? Int) ?? 1
@@ -121,6 +123,7 @@ extension GameScene {
         for node in uniqueEnemies { node.removeFromParent() }
 
         if !uniqueEnemies.isEmpty {
+            AudioManager.play(.explosion, on: self)
             runState?.levelSystem.grantXP(GameConstants.xpPerKill * uniqueEnemies.count)
         }
     }

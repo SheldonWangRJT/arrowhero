@@ -10,6 +10,7 @@ extension GameScene {
 
         run.player.currentHealth = max(0, run.player.currentHealth - amount)
         damageCooldown = GameConstants.damageIFrame
+        AudioManager.play(.playerHit, on: self)
 
         let flash = SKAction.sequence([
             .fadeAlpha(to: 0.2, duration: 0.05),

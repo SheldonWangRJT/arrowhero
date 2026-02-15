@@ -1,6 +1,6 @@
 # Arrow Survivor — Product Plan
 
-Version: 1.0 · Owner: Product + Engineering · Last updated: 2026-02-13
+Version: 1.0 · Owner: Product + Engineering · Last updated: 2026-02-14
 
 ## 1. Vision & Goals
 - Fast, satisfying survivor-roguelite mobile game inspired by Arrow Legend/Archero.

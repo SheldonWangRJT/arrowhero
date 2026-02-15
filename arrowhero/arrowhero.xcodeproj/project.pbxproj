@@ -13,6 +13,7 @@
 /* Begin PBXFileReference section */
 		6BB2DCCD2F404B5800693F57 /* arrowhero.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = arrowhero.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6BB2DCF92F4111AF00693F57 /* PixelArtKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelArtKit.swift; sourceTree = "<group>"; };
+		6BB2DDF02F41460C00693F57 /* bgm_electronic.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = bgm_electronic.mp3; path = arrowhero/Sounds/bgm_electronic.mp3; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -37,6 +38,7 @@
 		6BB2DCC42F404B5800693F57 = {
 			isa = PBXGroup;
 			children = (
+				6BB2DDF02F41460C00693F57 /* bgm_electronic.mp3 */,
 				6BB2DCCF2F404B5800693F57 /* arrowhero */,
 				6BB2DCCE2F404B5800693F57 /* Products */,
 				6BB2DCF92F4111AF00693F57 /* PixelArtKit.swift */,
